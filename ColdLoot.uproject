@@ -1,0 +1,13 @@
+{
+    "FileVersion": 3,
+    "EngineAssociation": "5.7",
+    "Category": "Games",
+    "Description": "Cold Loot penguin movement prototype",
+    "Modules": [{ "Name": "ColdLoot", "Type": "Runtime", "LoadingPhase": "Default" }],
+    "Plugins": [
+        { "Name": "ProceduralMeshComponent", "Enabled": true },
+        { "Name": "PythonScriptPlugin", "Enabled": true },
+        { "Name": "EditorScriptingUtilities", "Enabled": true },
+        { "Name": "AndroidFileServer", "Enabled": false }
+    ]
+}

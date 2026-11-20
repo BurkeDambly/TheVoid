@@ -1,0 +1,726 @@
+{
+  "Whiteout": {
+    "Feathers_Midnight_navy": {
+      "source": "Feathers | Midnight navy",
+      "color": [
+        0.02955683507025242,
+        0.03189603239297867,
+        0.061246052384376526,
+        1.0
+      ],
+      "roughness": 0.6499999761581421,
+      "metallic": 0.0,
+      "emission": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Feathers_Warm_gray_ivory": {
+      "source": "Feathers | Warm gray ivory",
+      "color": [
+        0.4910208582878113,
+        0.4019777774810791,
+        0.3967552185058594,
+        1.0
+      ],
+      "roughness": 0.6700000166893005,
+      "metallic": 0.0,
+      "emission": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Eyes_Ink": {
+      "source": "Eyes | Ink",
+      "color": [
+        0.007499032188206911,
+        0.008568125776946545,
+        0.01850022003054619,
+        1.0
+      ],
+      "roughness": 0.5099999904632568,
+      "metallic": 0.0,
+      "emission": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Beak_Golden_orange": {
+      "source": "Beak | Golden orange",
+      "color": [
+        0.8307698965072632,
+        0.35153260827064514,
+        0.027320891618728638,
+        1.0
+      ],
+      "roughness": 0.49000000953674316,
+      "metallic": 0.0,
+      "emission": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Beak_Amber_lower_bill": {
+      "source": "Beak | Amber lower bill",
+      "color": [
+        0.6307571530342102,
+        0.22696587443351746,
+        0.04373503103852272,
+        1.0
+      ],
+      "roughness": 0.5299999713897705,
+      "metallic": 0.0,
+      "emission": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Feet_Burnished_orange": {
+      "source": "Feet | Burnished orange",
+      "color": [
+        0.6239603757858276,
+        0.23074005544185638,
+        0.040915198624134064,
+        1.0
+      ],
+      "roughness": 0.6200000047683716,
+      "metallic": 0.0,
+      "emission": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Whiteout_midnight_wool": {
+      "source": "Whiteout | midnight wool",
+      "color": [
+        0.02500000037252903,
+        0.057999998331069946,
+        0.1469999998807907,
+        1.0
+      ],
+      "roughness": 0.6700000166893005,
+      "metallic": 0.0,
+      "emission": [
+        0.02500000037252903,
+        0.057999998331069946,
+        0.1469999998807907,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Whiteout_storm_blue_cuir": {
+      "source": "Whiteout | storm blue cuir",
+      "color": [
+        0.05999999865889549,
+        0.1080000028014183,
+        0.2070000022649765,
+        1.0
+      ],
+      "roughness": 0.5400000214576721,
+      "metallic": 0.0,
+      "emission": [
+        0.05999999865889549,
+        0.1080000028014183,
+        0.2070000022649765,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Whiteout_shadow_lining": {
+      "source": "Whiteout | shadow lining",
+      "color": [
+        0.007000000216066837,
+        0.014000000432133675,
+        0.03099999949336052,
+        1.0
+      ],
+      "roughness": 0.7599999904632568,
+      "metallic": 0.0,
+      "emission": [
+        0.007000000216066837,
+        0.014000000432133675,
+        0.03099999949336052,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Whiteout_engraved_blackened_silver": {
+      "source": "Whiteout | engraved blackened silver",
+      "color": [
+        0.20999999344348907,
+        0.28999999165534973,
+        0.38999998569488525,
+        1.0
+      ],
+      "roughness": 0.3100000023841858,
+      "metallic": 0.7200000286102295,
+      "emission": [
+        0.20999999344348907,
+        0.28999999165534973,
+        0.38999998569488525,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Whiteout_lapis_embroidery": {
+      "source": "Whiteout | lapis embroidery",
+      "color": [
+        0.07000000029802322,
+        0.164000004529953,
+        0.30000001192092896,
+        1.0
+      ],
+      "roughness": 0.44999998807907104,
+      "metallic": 0.23999999463558197,
+      "emission": [
+        0.07000000029802322,
+        0.164000004529953,
+        0.30000001192092896,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Whiteout_glazed_snow_porcelain": {
+      "source": "Whiteout | glazed snow porcelain",
+      "color": [
+        0.7300000190734863,
+        0.7900000214576721,
+        0.8600000143051147,
+        1.0
+      ],
+      "roughness": 0.4300000071525574,
+      "metallic": 0.07999999821186066,
+      "emission": [
+        0.7300000190734863,
+        0.7900000214576721,
+        0.8600000143051147,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Whiteout_frost_silver": {
+      "source": "Whiteout | frost silver",
+      "color": [
+        0.5699999928474426,
+        0.6700000166893005,
+        0.7900000214576721,
+        1.0
+      ],
+      "roughness": 0.2800000011920929,
+      "metallic": 0.6700000166893005,
+      "emission": [
+        0.5699999928474426,
+        0.6700000166893005,
+        0.7900000214576721,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Whiteout_glacier_inlay": {
+      "source": "Whiteout | glacier inlay",
+      "color": [
+        0.032999999821186066,
+        0.6399999856948853,
+        0.9200000166893005,
+        1.0
+      ],
+      "roughness": 0.30000001192092896,
+      "metallic": 0.3100000023841858,
+      "emission": [
+        0.032999999821186066,
+        0.6399999856948853,
+        0.9200000166893005,
+        1.0
+      ],
+      "emission_strength": 0.41999998688697815
+    },
+    "Whiteout_slate_enamel": {
+      "source": "Whiteout | slate enamel",
+      "color": [
+        0.27000001072883606,
+        0.3400000035762787,
+        0.4399999976158142,
+        1.0
+      ],
+      "roughness": 0.49000000953674316,
+      "metallic": 0.1899999976158142,
+      "emission": [
+        0.27000001072883606,
+        0.3400000035762787,
+        0.4399999976158142,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Whiteout_silver_thread": {
+      "source": "Whiteout | silver thread",
+      "color": [
+        0.6200000047683716,
+        0.6899999976158142,
+        0.7900000214576721,
+        1.0
+      ],
+      "roughness": 0.550000011920929,
+      "metallic": 0.23999999463558197,
+      "emission": [
+        0.6200000047683716,
+        0.6899999976158142,
+        0.7900000214576721,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Whiteout_glacier_crystal": {
+      "source": "Whiteout | glacier crystal",
+      "color": [
+        0.023000000044703484,
+        0.4300000071525574,
+        0.6800000071525574,
+        1.0
+      ],
+      "roughness": 0.2199999988079071,
+      "metallic": 0.25999999046325684,
+      "emission": [
+        0.023000000044703484,
+        0.4300000071525574,
+        0.6800000071525574,
+        1.0
+      ],
+      "emission_strength": 0.12999999523162842
+    },
+    "Whiteout_indigo_leather": {
+      "source": "Whiteout | indigo leather",
+      "color": [
+        0.023000000044703484,
+        0.035999998450279236,
+        0.06400000303983688,
+        1.0
+      ],
+      "roughness": 0.5299999713897705,
+      "metallic": 0.14000000059604645,
+      "emission": [
+        0.023000000044703484,
+        0.035999998450279236,
+        0.06400000303983688,
+        1.0
+      ],
+      "emission_strength": 0.0
+    }
+  },
+  "Forgekeeper": {
+    "Feathers_Midnight_navy": {
+      "source": "Feathers | Midnight navy",
+      "color": [
+        0.02955683507025242,
+        0.03189603239297867,
+        0.061246052384376526,
+        1.0
+      ],
+      "roughness": 0.6499999761581421,
+      "metallic": 0.0,
+      "emission": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Feathers_Warm_gray_ivory": {
+      "source": "Feathers | Warm gray ivory",
+      "color": [
+        0.4910208582878113,
+        0.4019777774810791,
+        0.3967552185058594,
+        1.0
+      ],
+      "roughness": 0.6700000166893005,
+      "metallic": 0.0,
+      "emission": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Eyes_Ink": {
+      "source": "Eyes | Ink",
+      "color": [
+        0.007499032188206911,
+        0.008568125776946545,
+        0.01850022003054619,
+        1.0
+      ],
+      "roughness": 0.5099999904632568,
+      "metallic": 0.0,
+      "emission": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Beak_Golden_orange": {
+      "source": "Beak | Golden orange",
+      "color": [
+        0.8307698965072632,
+        0.35153260827064514,
+        0.027320891618728638,
+        1.0
+      ],
+      "roughness": 0.49000000953674316,
+      "metallic": 0.0,
+      "emission": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Beak_Amber_lower_bill": {
+      "source": "Beak | Amber lower bill",
+      "color": [
+        0.6307571530342102,
+        0.22696587443351746,
+        0.04373503103852272,
+        1.0
+      ],
+      "roughness": 0.5299999713897705,
+      "metallic": 0.0,
+      "emission": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Feet_Burnished_orange": {
+      "source": "Feet | Burnished orange",
+      "color": [
+        0.6239603757858276,
+        0.23074005544185638,
+        0.040915198624134064,
+        1.0
+      ],
+      "roughness": 0.6200000047683716,
+      "metallic": 0.0,
+      "emission": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_blued_cast_iron": {
+      "source": "Forgekeeper | blued cast iron",
+      "color": [
+        0.10899999737739563,
+        0.07199999690055847,
+        0.07100000232458115,
+        1.0
+      ],
+      "roughness": 0.3700000047683716,
+      "metallic": 0.6899999976158142,
+      "emission": [
+        0.10899999737739563,
+        0.07199999690055847,
+        0.07100000232458115,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_beaten_red_copper": {
+      "source": "Forgekeeper | beaten red copper",
+      "color": [
+        0.6100000143051147,
+        0.2240000069141388,
+        0.10300000011920929,
+        1.0
+      ],
+      "roughness": 0.3700000047683716,
+      "metallic": 0.7200000286102295,
+      "emission": [
+        0.6100000143051147,
+        0.2240000069141388,
+        0.10300000011920929,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_machined_rose_bronze": {
+      "source": "Forgekeeper | machined rose bronze",
+      "color": [
+        0.6499999761581421,
+        0.2939999997615814,
+        0.13199999928474426,
+        1.0
+      ],
+      "roughness": 0.30000001192092896,
+      "metallic": 0.7400000095367432,
+      "emission": [
+        0.6499999761581421,
+        0.2939999997615814,
+        0.13199999928474426,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_golden_brass_hardware": {
+      "source": "Forgekeeper | golden brass hardware",
+      "color": [
+        0.7699999809265137,
+        0.42500001192092896,
+        0.14800000190734863,
+        1.0
+      ],
+      "roughness": 0.30000001192092896,
+      "metallic": 0.699999988079071,
+      "emission": [
+        0.7699999809265137,
+        0.42500001192092896,
+        0.14800000190734863,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_ember_glass": {
+      "source": "Forgekeeper | ember glass",
+      "color": [
+        0.9800000190734863,
+        0.6700000166893005,
+        0.10999999940395355,
+        1.0
+      ],
+      "roughness": 0.4300000071525574,
+      "metallic": 0.11999999731779099,
+      "emission": [
+        0.9800000190734863,
+        0.6700000166893005,
+        0.10999999940395355,
+        1.0
+      ],
+      "emission_strength": 2.1500000953674316
+    },
+    "Forgekeeper_molten_enamel": {
+      "source": "Forgekeeper | molten enamel",
+      "color": [
+        0.9900000095367432,
+        0.2549999952316284,
+        0.012000000104308128,
+        1.0
+      ],
+      "roughness": 0.3799999952316284,
+      "metallic": 0.10000000149011612,
+      "emission": [
+        0.9900000095367432,
+        0.2549999952316284,
+        0.012000000104308128,
+        1.0
+      ],
+      "emission_strength": 1.4800000190734863
+    },
+    "Forgekeeper_oxide_red_fired_wool": {
+      "source": "Forgekeeper | oxide red fired wool",
+      "color": [
+        0.4399999976158142,
+        0.052000001072883606,
+        0.03500000014901161,
+        1.0
+      ],
+      "roughness": 0.6399999856948853,
+      "metallic": 0.03999999910593033,
+      "emission": [
+        0.4399999976158142,
+        0.052000001072883606,
+        0.03500000014901161,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_refractory_cream_binding": {
+      "source": "Forgekeeper | refractory cream binding",
+      "color": [
+        0.6700000166893005,
+        0.4350000023841858,
+        0.25200000405311584,
+        1.0
+      ],
+      "roughness": 0.6600000262260437,
+      "metallic": 0.05000000074505806,
+      "emission": [
+        0.6700000166893005,
+        0.4350000023841858,
+        0.25200000405311584,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_copper_tan_sewing_thread": {
+      "source": "Forgekeeper | copper tan sewing thread",
+      "color": [
+        0.6899999976158142,
+        0.32600000500679016,
+        0.0989999994635582,
+        1.0
+      ],
+      "roughness": 0.5400000214576721,
+      "metallic": 0.0,
+      "emission": [
+        0.6899999976158142,
+        0.32600000500679016,
+        0.0989999994635582,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_heat_tempered_iron": {
+      "source": "Forgekeeper | heat-tempered iron",
+      "color": [
+        0.550000011920929,
+        0.23999999463558197,
+        0.09000000357627869,
+        1.0
+      ],
+      "roughness": 0.3400000035762787,
+      "metallic": 0.75,
+      "emission": [
+        0.550000011920929,
+        0.23999999463558197,
+        0.09000000357627869,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_tooled_apron_leather": {
+      "source": "Forgekeeper | tooled apron leather",
+      "color": [
+        0.25999999046325684,
+        0.0860000029206276,
+        0.039000000804662704,
+        1.0
+      ],
+      "roughness": 0.5299999713897705,
+      "metallic": 0.009999999776482582,
+      "emission": [
+        0.25999999046325684,
+        0.0860000029206276,
+        0.039000000804662704,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_oiled_apron_binding": {
+      "source": "Forgekeeper | oiled apron binding",
+      "color": [
+        0.38999998569488525,
+        0.14100000262260437,
+        0.06199999898672104,
+        1.0
+      ],
+      "roughness": 0.5099999904632568,
+      "metallic": 0.029999999329447746,
+      "emission": [
+        0.38999998569488525,
+        0.14100000262260437,
+        0.06199999898672104,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_fired_firebrick": {
+      "source": "Forgekeeper | fired firebrick",
+      "color": [
+        0.6000000238418579,
+        0.23499999940395355,
+        0.1120000034570694,
+        1.0
+      ],
+      "roughness": 0.6499999761581421,
+      "metallic": 0.07999999821186066,
+      "emission": [
+        0.6000000238418579,
+        0.23499999940395355,
+        0.1120000034570694,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_pale_refractory_ceramic": {
+      "source": "Forgekeeper | pale refractory ceramic",
+      "color": [
+        0.75,
+        0.5230000019073486,
+        0.30799999833106995,
+        1.0
+      ],
+      "roughness": 0.6000000238418579,
+      "metallic": 0.07999999821186066,
+      "emission": [
+        0.75,
+        0.5230000019073486,
+        0.30799999833106995,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_cinder_black": {
+      "source": "Forgekeeper | cinder black",
+      "color": [
+        0.02800000086426735,
+        0.01899999938905239,
+        0.01899999938905239,
+        1.0
+      ],
+      "roughness": 0.5899999737739563,
+      "metallic": 0.25,
+      "emission": [
+        0.02800000086426735,
+        0.01899999938905239,
+        0.01899999938905239,
+        1.0
+      ],
+      "emission_strength": 0.0
+    },
+    "Forgekeeper_tool_steel": {
+      "source": "Forgekeeper | tool steel",
+      "color": [
+        0.25,
+        0.2160000056028366,
+        0.19599999487400055,
+        1.0
+      ],
+      "roughness": 0.3499999940395355,
+      "metallic": 0.7599999904632568,
+      "emission": [
+        0.25,
+        0.2160000056028366,
+        0.19599999487400055,
+        1.0
+      ],
+      "emission_strength": 0.0
+    }
+  }
+}
