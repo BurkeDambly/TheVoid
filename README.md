@@ -1,5 +1,13 @@
 # Coldzone
 
+## Windows playtest
+
+**[Download the Windows playtest](https://github.com/BurkeDambly/Coldzone/releases/download/playtest-2026-11-20/ColdLoot-Windows-x64-Playtest-2026-11-20.zip)**
+
+Extract the whole ZIP and double-click `ColdLoot.exe` in the extracted folder. Unreal Engine is unnecessary.
+
+## Unreal Engine project
+
 Open `ColdLoot.uproject` in Unreal Engine 5.7. **IcebergNetwork** opens by default. Press **Play**.
 
 See [the workspace guide](AGENTS.md) for the asset and code map.
