@@ -22,6 +22,10 @@ void AColdLootHUD::DrawHUD()
     {
         return;
     }
+    if (IsGraphicsMenuOpen())
+    {
+        return;
+    }
 
     if (FScreenshotRequest::IsScreenshotRequested() && FScreenshotRequest::GetFilename().Contains(TEXT("Coldzone_ZoneReference")))
     {
@@ -40,8 +44,8 @@ void AColdLootHUD::DrawHUD()
     const bool bIcebergNetwork = UGameplayStatics::GetCurrentLevelName(this) == TEXT("IcebergNetwork");
     const TCHAR* LevelTitle = bIcebergNetwork ? TEXT("COLDZONE  /  ICEBERG NETWORK")
         : Island ? TEXT("COLDZONE  /  FROZEN BASIN") : TEXT("COLD LOOT  /  SLIDE PARK");
-    DrawRect(FLinearColor(0.018f, 0.047f, 0.082f, 0.90f), 24, 24, 330, 112);
-    DrawRect(Accent, 24, 24, 3, 112);
+    DrawRect(FLinearColor(0.018f, 0.047f, 0.082f, 0.90f), 24, 24, 330, 142);
+    DrawRect(Accent, 24, 24, 3, 142);
     const TCHAR* FormTitle = bEditorForm ? TEXT("EDITOR PENGUIN FORM") : TEXT("PENGUIN FORM ACTIVE");
     DrawText(Penguin->IsPenguinFormActive() ? FormTitle : LevelTitle, Accent, 41, 34, nullptr, 1.15f);
     DrawText(FString::Printf(TEXT("%s     %.1f m/s     %+d deg"), Penguin->MotionLabel(),
@@ -69,7 +73,7 @@ void AColdLootHUD::DrawHUD()
         FVector2D Center(Canvas->ClipX * 0.5, Canvas->ClipY * 0.5);
         const FLinearColor Reticle = Penguin->CanFire() ? Ice : FLinearColor(Ice.R, Ice.G, Ice.B, 0.4f);
         const float Gap = Penguin->ReticleGap();
-        if (!Penguin->CanFire() || PlayerOwner->ProjectWorldLocationToScreen(Penguin->GetBoreAimPoint(), Center, true))
+        if (!Penguin->CanFire() || PlayerOwner->ProjectWorldLocationToScreen(Penguin->GetBoreReticlePoint(), Center, true))
         {
             for (const FVector2D Direction : {FVector2D(1, 0), FVector2D(-1, 0), FVector2D(0, 1), FVector2D(0, -1)})
             {
@@ -80,9 +84,6 @@ void AColdLootHUD::DrawHUD()
             }
         }
     }
-#if WITH_EDITOR
-    DrawText(TEXT("LMB Fire   /   RMB Aim   /   E Editor Form"), Ice, 41, 116);
-#else
-    DrawText(TEXT("Hold LMB Fire   /   Hold RMB Aim"), Ice, 41, 116);
-#endif
+    DrawText(TEXT("LMB Fire   /   RMB Aim   /   E Red Form"), Ice, 41, 116);
+    DrawText(TEXT("F2 Graphics"), Ice, 41, 141);
 }

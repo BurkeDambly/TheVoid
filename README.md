@@ -2,9 +2,11 @@
 
 ## Windows playtest
 
-**[Download the Windows playtest](https://github.com/BurkeDambly/Coldzone/releases/download/playtest-2026-11-20/ColdLoot-Windows-x64-Playtest-2026-11-20.zip)**
+**[Download the Windows playtest](https://github.com/BurkeDambly/Coldzone/releases/latest/download/Coldzone-Windows-x64.zip)**
 
-Extract the whole ZIP and double-click `ColdLoot.exe` in the extracted folder. Unreal Engine is unnecessary.
+Extract the whole ZIP and double-click `ColdLoot.exe`. Unreal Engine is unnecessary.
+
+Press **F2** for display mode and graphics quality. Press **Q** for Blue Form or **E** for Red Form. Both boost sliding, and **W** powers the slide while a form is active.
 
 ## Unreal Engine project
 
@@ -37,8 +39,7 @@ graded routes. The coastal loop and high traverse connect to the summit switchba
 quarry link, gorge link, and the path past **Frost Basin**, a small U-shaped depression around a flat
 ice sheet on the coastal slope. **R** returns to the summit, and **Q** toggles blue Form.
 
-In Editor builds, **Up/Down** selects a location on the map and **Enter** visits it. Press **E** for red
-Editor Penguin Form, **C** to slide, and hold **W** to power the slide at sixteen times sprint speed.
+In Editor builds, **Up/Down** selects a location on the map and **Enter** visits it.
 
 ### Zone references for Blender
 

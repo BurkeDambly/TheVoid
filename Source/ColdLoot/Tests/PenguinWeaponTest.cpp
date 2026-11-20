@@ -225,11 +225,11 @@ bool FPenguinWeaponTest::RunTest(const FString&)
     Advance(30);
     const FTransform MuzzleBeforeShot = Pawn.WeaponReceiver->GetSocketTransform(TEXT("Muzzle"));
     const FVector Bore = MuzzleBeforeShot.GetRotation().GetForwardVector();
-    const FVector ReticleTarget = Pawn.GetBoreAimPoint();
-    TestTrue(TEXT("The bore follows view direction and the reticle marks its actual hit"),
-        FVector::Distance(ReticleTarget, AimPoint) < 40.0
-        && FVector::DotProduct(LookDirection, Bore) > 0.999
-        && FVector::DotProduct(Bore, (ReticleTarget - MuzzleBeforeShot.GetLocation()).GetSafeNormal()) > 0.9999);
+    const FVector ReticlePoint = Pawn.GetBoreReticlePoint();
+    TestTrue(TEXT("The bore follows the view and the reticle looks past the target"),
+        FVector::DotProduct(LookDirection, Bore) > 0.999
+        && FVector::Distance(ReticlePoint, MuzzleBeforeShot.GetLocation()) > 10000.0
+        && FVector::DotProduct(Bore, (ReticlePoint - MuzzleBeforeShot.GetLocation()).GetSafeNormal()) > 0.9999);
     Key(EKeys::LeftMouseButton, IE_Pressed);
     Advance(3);
     TActorIterator<AColdLootBullet> Shot(World);
@@ -245,7 +245,7 @@ bool FPenguinWeaponTest::RunTest(const FString&)
         TestTrue(TEXT("The starter projectile launches at 14400 cm/s"),
             FMath::IsNearlyEqual(Flight->Velocity.Size(), 14400.0, 0.1));
         const FVector LaunchVelocity = Flight->Velocity;
-        const float TravelTime = (FVector::Distance(Bullet->GetActorLocation(), ReticleTarget) + 20.0)
+        const float TravelTime = (FVector::Distance(Bullet->GetActorLocation(), AimPoint) + 20.0)
             / LaunchVelocity.Size();
         Flight->TickComponent(TravelTime, LEVELTICK_All, nullptr);
         if (TestTrue(TEXT("The first target impact reflects the tracer once"),
@@ -255,7 +255,7 @@ bool FPenguinWeaponTest::RunTest(const FString&)
             bool bSurfaceFlash = false;
             for (TActorIterator<AColdLootBulletImpact> Effect(World); Effect; ++Effect)
             {
-                bSurfaceFlash |= FVector::Distance(Effect->GetActorLocation(), ReticleTarget) < 20.0;
+                bSurfaceFlash |= Collider->Bounds.GetBox().ExpandBy(8.0).IsInsideOrOn(Effect->GetActorLocation());
             }
             TestTrue(TEXT("The ricochet flashes at the hit surface"), bSurfaceFlash);
             auto* Tracer = Bullet->FindComponentByClass<UStaticMeshComponent>();
@@ -354,6 +354,7 @@ bool FPenguinWeaponTest::RunTest(const FString&)
     Key(EKeys::RightMouseButton, IE_Pressed);
     Advance(40);
     const FTransform MuzzleWithoutPole = Pawn.WeaponReceiver->GetSocketTransform(TEXT("Muzzle"));
+    const FVector ReticleWithoutPole = Pawn.GetBoreReticlePoint();
     const FVector PoleLocation = MuzzleWithoutPole.GetLocation()
         + MuzzleWithoutPole.GetRotation().GetForwardVector() * 460.0;
     AActor* ForegroundPole = World->SpawnActor<AActor>();
@@ -365,8 +366,8 @@ bool FPenguinWeaponTest::RunTest(const FString&)
     PoleCollision->SetWorldLocation(PoleLocation);
     PoleCollision->RegisterComponent();
     Advance(24);
-    TestTrue(TEXT("The reticle shows the obstruction on the fixed firing line"),
-        FVector::Dist(Pawn.GetBoreAimPoint(), PoleLocation) < 14.0
+    TestTrue(TEXT("The pole leaves the reticle and firing line in place"),
+        Pawn.GetBoreReticlePoint().Equals(ReticleWithoutPole, 0.3)
         && Pawn.WeaponReceiver->GetSocketTransform(TEXT("Muzzle")).Equals(MuzzleWithoutPole, 0.2));
     Key(EKeys::LeftMouseButton, IE_Pressed);
     Advance(1);

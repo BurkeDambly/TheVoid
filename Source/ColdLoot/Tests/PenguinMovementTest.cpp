@@ -162,8 +162,8 @@ bool FPenguinMovementTest::RunTest(const FString& Parameters)
     Penguin.ResetUphill();
     const FVector2D Uphill = RunSlide(TEXT("Uphill belly slide"), false);
 
-    TestTrue(TEXT("Flat distance matches the setting"),
-        FMath::IsNearlyEqual(Flat.X, static_cast<double>(Penguin.FlatSlideDistance), 1.0));
+    TestTrue(TEXT("A stationary slide starts with a short push and comes to rest"),
+        Flat.X > 90.0 && Flat.X < 160.0 && FMath::IsNearlyEqual(Flat.Y, Penguin.StationarySlidePush, 1.0));
     TestTrue(TEXT("Sprint entry adds flat distance"), Sprint.X > Flat.X);
     TestTrue(TEXT("Downhill builds speed and carries farther"), Downhill.X > Sprint.X && Downhill.Y > Sprint.Y);
     TestTrue(TEXT("Uphill stops sooner"), Uphill.X < Flat.X);
@@ -358,9 +358,8 @@ bool FPenguinMovementTest::RunTest(const FString& Parameters)
         const float EntrySpeed = Penguin.Speed();
         Key(EKeys::C, IE_Pressed);
         TestTrue(TEXT("C starts a sprint slide"), Penguin.bSliding && Penguin.bSprintEntry);
-        TestTrue(TEXT("Sprint slide boosts entry speed"),
-            FMath::IsNearlyEqual(Penguin.Speed(), FMath::Min(Penguin.SlideSpeedLimit,
-                EntrySpeed + Penguin.SprintSlideSpeedBoost), 1.0f));
+        TestTrue(TEXT("Sprint slide carries the sprint entry speed"),
+            FMath::IsNearlyEqual(Penguin.Speed(), FMath::Min(Penguin.SlideSpeedLimit, EntrySpeed), 1.0f));
 
         Key(EKeys::C, IE_Released);
         Penguin.Tick(0.12f);

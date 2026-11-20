@@ -142,6 +142,13 @@ def configure_daylight():
          volumetric_fog_scattering_distribution=0.68,
          volumetric_fog_albedo=unreal.Color(228, 239, 255, 255))
 
+    exposure = scene_actor(unreal.PostProcessVolume, "Arctic Exposure")
+    tune(exposure, unbound=True)
+    grading = exposure.get_editor_property("settings")
+    grading.set_editor_property("override_auto_exposure_bias", True)
+    grading.set_editor_property("auto_exposure_bias", -0.45)
+    exposure.set_editor_property("settings", grading)
+
 
 if __name__ == "__main__":
     if not levels.load_level(MAP):

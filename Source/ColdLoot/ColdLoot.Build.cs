@@ -6,5 +6,6 @@ public class ColdLoot : ModuleRules
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         PublicDependencyModuleNames.AddRange(new[] { "Core", "CoreUObject", "Engine", "InputCore", "ProceduralMeshComponent" });
+        PrivateDependencyModuleNames.AddRange(new[] { "Slate", "SlateCore" });
     }
 }

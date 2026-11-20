@@ -37,26 +37,20 @@ public:
     UPROPERTY(EditAnywhere, Category="Penguin|Locomotion", meta=(ClampMin="10", Units="cm"))
     float SprintDistancePerCycle = 450.0f;
 
-    UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="10", Units="cm"))
-    float FlatSlideDistance = 420.0f;
-
-    UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="1"))
-    float SprintSlideDistanceMultiplier = 1.55f;
-
     UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="0", Units="cm/s"))
-    float SprintSlideSpeedBoost = 130.0f;
+    float StationarySlidePush = 280.0f;
 
-    UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="1"))
+    UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="1", Units="cm/s^2"))
     float FlatDeceleration = 320.0f;
+
+    UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="1", Units="cm/s^2"))
+    float FastSlideDeceleration = 85.0f;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="0"))
     float SlopeGravity = 1400.0f;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="100"))
     float SlideSpeedLimit = 1320.0f;
-
-    UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form", meta=(ClampMin="0", Units="cm/s"))
-    float FormSprintSlideSpeedBoost = 225.0f;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form", meta=(ClampMin="0", Units="cm/s^2"))
     float FormDownhillGravity = 2650.0f;
@@ -82,6 +76,10 @@ public:
     UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form")
     TSoftObjectPtr<UMaterialInterface> PenguinFormMaterial{FSoftObjectPath(
         TEXT("/Game/Penguin/Mesh/M_PenguinForm.M_PenguinForm"))};
+
+    UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form")
+    TSoftObjectPtr<UMaterialInterface> EditorPenguinFormMaterial{FSoftObjectPath(
+        TEXT("/Game/Penguin/Mesh/M_EditorPenguinForm.M_EditorPenguinForm"))};
 
     UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="0"))
     float SlideSteering = 52.0f;
@@ -121,7 +119,7 @@ public:
     bool IsSwimming() const { return bSwimming; }
     double GetSwimDepth() const { return SwimDepth; }
     float ReticleGap() const;
-    FVector GetBoreAimPoint() const;
+    FVector GetBoreReticlePoint() const;
 
 private:
     friend class FPenguinAnimProxy;
@@ -158,8 +156,9 @@ private:
     void ToggleSlide();
     void TogglePenguinForm();
     void ToggleIslandMap();
-#if WITH_EDITOR
     void ToggleEditorPenguinForm();
+    void ToggleGraphicsMenu();
+#if WITH_EDITOR
     void PreviousIslandZone();
     void NextIslandZone();
     void VisitIslandZone();
@@ -212,10 +211,8 @@ private:
     UPROPERTY(Transient)
     TObjectPtr<UMaterialInterface> PenguinFormGlow;
 
-#if WITH_EDITORONLY_DATA
     UPROPERTY(Transient)
     TObjectPtr<UMaterialInterface> EditorPenguinFormGlow;
-#endif
 
     FVector HipSocketOffset = FVector::ZeroVector;
     float HipArmLength = 508.2f;

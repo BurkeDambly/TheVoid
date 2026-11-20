@@ -20,6 +20,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerInput.h"
+#include "GameFramework/GameUserSettings.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "InputKeyEventArgs.h"
@@ -29,6 +30,7 @@
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "SkeletalRenderPublic.h"
 #include "UnrealClient.h"
+#include "Widgets/Input/SButton.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIcebergWeaponTest, "ColdLoot.IcebergNetwork.FiringLine",
     EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
@@ -86,6 +88,7 @@ bool FIcebergWeaponTest::RunTest(const FString&)
     Advance(1);
     const FTransform Muzzle = Penguin->WeaponReceiver->GetSocketTransform(MuzzleName);
     const FVector Bore = Muzzle.GetRotation().GetForwardVector();
+    const FVector ReticlePoint = Penguin->GetBoreReticlePoint();
     TestTrue(TEXT("The body and bore track mouse input during ADS in one frame"),
         FVector::DotProduct(Penguin->BodyPivot->GetForwardVector(),
             Penguin->Camera->GetForwardVector().GetSafeNormal2D()) > 0.9999
@@ -107,8 +110,13 @@ bool FIcebergWeaponTest::RunTest(const FString&)
 
     const FVector BoreTarget = Muzzle.GetLocation() + Bore * 650.0;
     Collider->SetWorldLocation(BoreTarget);
-    const FVector Marker = Penguin->GetBoreAimPoint();
-    TestTrue(TEXT("The reticle marks the hit on the muzzle line"), FVector::Dist(Marker, BoreTarget) < 23.0);
+    TestTrue(TEXT("The reticle stays on the same bore line when a nearby target crosses it"),
+        Penguin->GetBoreReticlePoint().Equals(ReticlePoint, 0.3)
+        && (ReticlePoint - Muzzle.GetLocation()).GetSafeNormal().Equals(Bore, 0.001));
+    Collider->SetWorldLocation(Muzzle.GetLocation() + Bore * 2.0);
+    TestTrue(TEXT("An obstruction at the muzzle also leaves the reticle in place"),
+        Penguin->GetBoreReticlePoint().Equals(ReticlePoint, 0.3));
+    Collider->SetWorldLocation(BoreTarget);
     Penguin->LookYaw(21.0f);
     Penguin->LookPitch(-7.0f);
     Penguin->StartFire();
@@ -198,6 +206,76 @@ bool FIcebergNetworkTest::RunTest(const FString& Parameters)
         Key(Button, IE_Released);
     };
 
+    if (FParse::Param(FCommandLine::Get(), TEXT("ColdzonePlaytestSmoke")))
+    {
+        Tap(EKeys::C);
+        const float NormalSpeed = Penguin->Speed();
+        Tap(EKeys::Q);
+        const float BlueSpeed = Penguin->Speed();
+        TestTrue(TEXT("Q activates the blue overlay and increases slide speed"),
+            Penguin->IsPenguinFormActive() && !Penguin->IsEditorPenguinFormActive()
+            && Penguin->PenguinMesh->GetOverlayMaterial()
+            && Penguin->PenguinMesh->GetOverlayMaterial()->GetFName() == TEXT("M_PenguinForm")
+            && NormalSpeed > 0.0f && BlueSpeed > NormalSpeed);
+        Tap(EKeys::E);
+        TestTrue(TEXT("E activates the red overlay and a stronger slide boost"),
+            Penguin->IsEditorPenguinFormActive()
+            && Penguin->PenguinMesh->GetOverlayMaterial()
+            && Penguin->PenguinMesh->GetOverlayMaterial()->GetFName() == TEXT("M_EditorPenguinForm")
+            && Penguin->Speed() > BlueSpeed);
+        AddInfo(FString::Printf(TEXT("Slide speeds in normal, blue and red forms: %.0f / %.0f / %.0f cm/s"),
+            NormalSpeed, BlueSpeed, Penguin->Speed()));
+        Tap(EKeys::E);
+        Tap(EKeys::R);
+
+        Tap(EKeys::F2);
+        if (!TestTrue(TEXT("F2 opens the graphics menu and pauses the game"),
+            HUD->IsGraphicsMenuOpen() && World->IsPaused()))
+        {
+            return false;
+        }
+        auto* Settings = GEngine->GetGameUserSettings();
+        auto Click = [&](FName Tag)
+        {
+            TArray<TSharedRef<SWidget>> Widgets{HUD->GraphicsMenu.ToSharedRef()};
+            while (!Widgets.IsEmpty())
+            {
+                const auto Widget = Widgets.Pop();
+                if (Widget->GetTag() == Tag && Widget->GetType() == TEXT("SButton"))
+                {
+                    StaticCastSharedRef<SButton>(Widget)->SimulateClick();
+                    return true;
+                }
+                FChildren* Children = Widget->GetChildren();
+                for (int32 Index = 0; Index < Children->Num(); ++Index)
+                {
+                    Widgets.Add(ConstCastSharedRef<SWidget>(Children->GetChildAt(Index)));
+                }
+            }
+            return false;
+        };
+        const auto OriginalQuality = Settings->ScalabilityQuality;
+        const FIntPoint OriginalResolution = Settings->GetScreenResolution();
+        const EWindowMode::Type OriginalMode = Settings->GetFullscreenMode();
+        TestTrue(TEXT("The Low graphics button applies the Low preset"),
+            Click(TEXT("Low")) && Settings->GetOverallScalabilityLevel() == 0);
+        TestTrue(TEXT("The High graphics button applies the High preset"),
+            Click(TEXT("High")) && Settings->GetOverallScalabilityLevel() == 2);
+        TestTrue(TEXT("The Borderless button enables borderless fullscreen"),
+            Click(TEXT("Borderless")) && Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen);
+        TestTrue(TEXT("The Windowed button returns to windowed mode"),
+            Click(TEXT("Windowed")) && Settings->GetFullscreenMode() == EWindowMode::Windowed);
+        Settings->ScalabilityQuality = OriginalQuality;
+        Settings->SetScreenResolution(OriginalResolution);
+        Settings->SetFullscreenMode(OriginalMode);
+        Settings->ApplySettings(false);
+        Settings->ConfirmVideoMode();
+        Settings->SaveSettings();
+        Tap(EKeys::F2);
+        TestTrue(TEXT("F2 closes the menu and resumes gameplay"), !HUD->IsGraphicsMenuOpen() && !World->IsPaused());
+        return true;
+    }
+
     if (FParse::Param(FCommandLine::Get(), TEXT("ColdzoneDaylightPreview")))
     {
         ACameraActor* Observer = World->SpawnActor<ACameraActor>(
@@ -268,6 +346,43 @@ bool FIcebergNetworkTest::RunTest(const FString& Parameters)
         return true;
     }
 
+    auto TestGlide = [&](bool bSprint)
+    {
+        Tap(EKeys::R);
+        Penguin->SetActorLocation(FVector(-700, -1200, Terrain.HeightAt(-700, -1200) + 1.0));
+        if (bSprint)
+        {
+            Key(EKeys::LeftShift, IE_Pressed);
+        }
+        Key(EKeys::W, IE_Pressed);
+        for (int32 Index = 0; Index < 36; ++Index)
+        {
+            Penguin->Tick(Frame);
+        }
+        const double EntrySpeed = Penguin->Speed();
+        Tap(EKeys::C);
+        TestTrue(TEXT("A moving slide starts with the current speed"),
+            EntrySpeed > 65.0 && FMath::IsNearlyEqual(Penguin->Speed(), EntrySpeed, 1.0));
+        Key(EKeys::W, IE_Released);
+        if (bSprint)
+        {
+            Key(EKeys::LeftShift, IE_Released);
+        }
+        for (int32 Index = 0; Index < 30; ++Index)
+        {
+            Penguin->Tick(Frame);
+        }
+        return FVector2D(EntrySpeed, Penguin->Speed());
+    };
+    const FVector2D SlowGlide = TestGlide(false);
+    const FVector2D FastGlide = TestGlide(true);
+    TestTrue(TEXT("A fast slide loses less speed to friction than a slow slide on flat snow"),
+        FastGlide.X > SlowGlide.X && FastGlide.Y > FastGlide.X * 0.88
+        && FastGlide.X - FastGlide.Y < SlowGlide.X - SlowGlide.Y
+        && FastGlide.Y < FastGlide.X);
+    AddInfo(FString::Printf(TEXT("Slide after half a second: walk %.0f to %.0f, sprint %.0f to %.0f cm/s"),
+        SlowGlide.X, SlowGlide.Y, FastGlide.X, FastGlide.Y));
+    Tap(EKeys::R);
     Key(EKeys::LeftShift, IE_Pressed);
     Key(EKeys::W, IE_Pressed);
     auto Cross = [&](bool bReturning)

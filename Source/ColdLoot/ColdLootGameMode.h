@@ -6,6 +6,7 @@
 #include "ColdLootGameMode.generated.h"
 
 class AColdzoneMapTerrain;
+class SWidget;
 class UTexture2D;
 
 UCLASS()
@@ -15,14 +16,22 @@ class AColdLootHUD : public AHUD
 
 public:
     virtual void DrawHUD() override;
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+    void ToggleGraphicsMenu();
+    bool IsGraphicsMenuOpen() const { return GraphicsMenu.IsValid(); }
     void ToggleIslandMap() { bIslandMapOpen = !bIslandMapOpen; }
     bool IsIslandMapOpen() const { return bIslandMapOpen; }
     void SelectIslandZone(int32 Delta, int32 Count);
     int32 IslandZoneSelection() const { return SelectedZone; }
 
 private:
+    friend class FIcebergNetworkTest;
     void DrawIslandMap(const AColdzoneMapTerrain& Terrain, const FVector& PlayerLocation);
     void BuildIslandMapTexture(const AColdzoneMapTerrain& Terrain);
+    void CloseGraphicsMenu();
+    TSharedPtr<SWidget> GraphicsMenu;
+    bool bPausedForGraphics = false;
+    bool bCursorBeforeGraphics = false;
 
     UPROPERTY(Transient)
     TObjectPtr<UTexture2D> IslandMapTexture;

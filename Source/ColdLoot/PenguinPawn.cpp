@@ -44,7 +44,7 @@ constexpr double UphillLaunchRise = 0.20;
 constexpr double UphillLaunchLift = 460.0;
 constexpr double RolloverLift = 85.0;
 constexpr float SlideLandingRunout = 400.0f;
-constexpr double AimRange = 12000.0;
+constexpr double BoreReticleDistance = 12000.0;
 constexpr float WeaponHoldSeconds = 2.0f;
 constexpr float RecoilRecoverySeconds = 0.13f;
 constexpr double RecoilStrength = 0.60;
@@ -171,14 +171,11 @@ void APenguinPawn::BeginPlay()
     {
         PenguinFormGlow->EnsureIsComplete();
     }
-#if WITH_EDITOR
-    EditorPenguinFormGlow = LoadObject<UMaterialInterface>(nullptr,
-        TEXT("/Game/Penguin/Mesh/M_EditorPenguinForm.M_EditorPenguinForm"));
+    EditorPenguinFormGlow = EditorPenguinFormMaterial.LoadSynchronous();
     if (EditorPenguinFormGlow)
     {
         EditorPenguinFormGlow->EnsureIsComplete();
     }
-#endif
     ResetFlat();
 }
 
@@ -194,8 +191,9 @@ void APenguinPawn::SetupPlayerInputComponent(UInputComponent* Input)
     Input->BindAction(TEXT("Slide"), IE_Pressed, this, &APenguinPawn::ToggleSlide);
     Input->BindAction(TEXT("PenguinForm"), IE_Pressed, this, &APenguinPawn::TogglePenguinForm);
     Input->BindKey(EKeys::M, IE_Pressed, this, &APenguinPawn::ToggleIslandMap);
-#if WITH_EDITOR
     Input->BindKey(EKeys::E, IE_Pressed, this, &APenguinPawn::ToggleEditorPenguinForm);
+    Input->BindKey(EKeys::F2, IE_Pressed, this, &APenguinPawn::ToggleGraphicsMenu).bExecuteWhenPaused = true;
+#if WITH_EDITOR
     Input->BindKey(EKeys::Up, IE_Pressed, this, &APenguinPawn::PreviousIslandZone);
     Input->BindKey(EKeys::Down, IE_Pressed, this, &APenguinPawn::NextIslandZone);
     Input->BindKey(EKeys::Enter, IE_Pressed, this, &APenguinPawn::VisitIslandZone);
@@ -273,20 +271,10 @@ bool APenguinPawn::TraceMuzzleObstruction(const FVector& GripLocation, const FVe
     return GetWorld()->LineTraceSingleByChannel(Hit, GripLocation, MuzzleLocation, AColdLootBullet::CollisionChannel, Query);
 }
 
-FVector APenguinPawn::GetBoreAimPoint() const
+FVector APenguinPawn::GetBoreReticlePoint() const
 {
     const FTransform Muzzle = WeaponReceiver->GetSocketTransform(MuzzleSocket);
-    const FVector Origin = Muzzle.GetLocation();
-    FHitResult Hit;
-    if (TraceMuzzleObstruction(WeaponGrip->GetComponentLocation(), Origin, Hit))
-    {
-        return Hit.ImpactPoint;
-    }
-    const FVector End = Origin + Muzzle.GetRotation().GetForwardVector() * AimRange;
-    const FCollisionQueryParams Query(SCENE_QUERY_STAT(BoreReticle), false, this);
-    const bool bHit = GetWorld()->SweepSingleByChannel(Hit, Origin, End, FQuat::Identity,
-        AColdLootBullet::CollisionChannel, FCollisionShape::MakeSphere(AColdLootBullet::CollisionRadius), Query);
-    return bHit ? Hit.Location : End;
+    return Muzzle.GetLocation() + Muzzle.GetRotation().GetForwardVector() * BoreReticleDistance;
 }
 
 FVector APenguinPawn::GetWeaponAimDirection() const
@@ -551,18 +539,14 @@ void APenguinPawn::ToggleSlide()
     {
         return;
     }
-    if (GroundSpeed <= 1.0f)
+    const bool bFromRest = GroundSpeed <= 1.0f;
+    if (bFromRest)
     {
         Heading = Facing;
     }
 
     bSprintEntry = bSprintHeld && bSprinting && GroundSpeed >= GetGaitSpeed(true) * 0.60f;
-    const float TargetDistance = FlatSlideDistance * (bSprintEntry ? SprintSlideDistanceMultiplier : 1.0f);
-    // Solve v^2 = v_stop^2 + 2 * deceleration * distance for the flat-ground launch.
-    const float DistanceLaunchSpeed = FMath::Sqrt(FMath::Square(SlideStopSpeed) + 2 * FlatDeceleration * TargetDistance);
-    const float Boost = IsPenguinFormActive() ? FormSprintSlideSpeedBoost : SprintSlideSpeedBoost;
-    const float LaunchSpeed = bSprintEntry ? FMath::Max(DistanceLaunchSpeed, GroundSpeed + Boost)
-        : DistanceLaunchSpeed;
+    const float LaunchSpeed = bFromRest ? StationarySlidePush : GroundSpeed;
     GroundSpeed = FMath::Min(GetSlideSpeedLimit(), LaunchSpeed * GetSlideSpeedScale());
     PeakSlideSpeed = GroundSpeed;
     DistanceThisSlide = SlidePoseTime = 0;
@@ -589,12 +573,27 @@ void APenguinPawn::ToggleIslandMap()
     }
 }
 
-#if WITH_EDITOR
+void APenguinPawn::ToggleGraphicsMenu()
+{
+    const auto* Player = Cast<APlayerController>(GetController());
+    if (auto* HUD = Player ? Cast<AColdLootHUD>(Player->GetHUD()) : nullptr)
+    {
+        if (!HUD->IsGraphicsMenuOpen())
+        {
+            StopAim();
+            StopFire();
+            ShotRequestTime = 0.0f;
+        }
+        HUD->ToggleGraphicsMenu();
+    }
+}
+
 void APenguinPawn::ToggleEditorPenguinForm()
 {
     SetForm(IsEditorPenguinFormActive() ? EForm::Normal : EForm::EditorPenguin);
 }
 
+#if WITH_EDITOR
 void APenguinPawn::PreviousIslandZone()
 {
     if (auto* HUD = GetIslandHUD(*this); HUD && HUD->IsIslandMapOpen())
@@ -637,12 +636,10 @@ void APenguinPawn::SetForm(EForm Form)
     const float PreviousScale = GetSlideSpeedScale();
     ActiveForm = Form;
     UMaterialInterface* Glow = IsPenguinFormActive() ? PenguinFormGlow.Get() : nullptr;
-#if WITH_EDITOR
     if (IsEditorPenguinFormActive())
     {
         Glow = EditorPenguinFormGlow.Get();
     }
-#endif
     PenguinMesh->SetOverlayMaterial(Glow);
     if (bSliding && !bSlideAirborne)
     {
@@ -915,9 +912,11 @@ void APenguinPawn::Step(float Seconds, const FVector& Wish)
         const float GradeGravity = IsPenguinFormActive()
             ? (Travel.Z < 0.0 ? FormDownhillGravity : SlopeGravity * FormUphillBrakingMultiplier)
             : SlopeGravity;
-        const float Drag = FlatDeceleration * (IsPenguinFormActive() ? FormSlideFrictionMultiplier : 1.0f);
+        const float GlideWeight = FMath::SmoothStep(230.0f, 630.0f, PreviousSpeed / SpeedScale);
+        const float Friction = FMath::Lerp(FlatDeceleration, FastSlideDeceleration, GlideWeight)
+            * Normal.Z * (IsPenguinFormActive() ? FormSlideFrictionMultiplier : 1.0f);
         // Scale acceleration by speed squared to keep the slide's speed profile over the terrain.
-        const float Acceleration = (-GradeGravity * Travel.Z - Drag) * AccelerationScale;
+        const float Acceleration = (-GradeGravity * Travel.Z - Friction) * AccelerationScale;
         const float SpeedLimit = GetSlideSpeedLimit();
         const float GlideSpeed = FMath::Clamp(PreviousSpeed + Acceleration * Seconds, 0.0f, SpeedLimit);
         const float ForwardDrive = IsPenguinFormActive() ? FMath::Clamp(ForwardInput, 0.0f, 1.0f) : 0.0f;
