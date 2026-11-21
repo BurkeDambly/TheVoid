@@ -10,7 +10,7 @@ Press **F2** for display mode and graphics quality. Press **Q** for Blue Form or
 
 ### Multiplayer playtest
 
-**[Download the Windows multiplayer playtest](https://github.com/BurkeDambly/Coldzone/releases/download/playtest-2026-11-20-multiplayer/ColdLoot-Windows-Multiplayer.zip)**
+**[Download the Windows multiplayer playtest](https://github.com/BurkeDambly/Coldzone/releases/download/playtest-2026-11-20-multiplayer-fix/ColdLoot-Windows-Multiplayer.zip)**
 
 Both players extract the same ZIP. The host runs `Host Cold Loot.cmd`. The guest runs `Join Cold Loot.cmd` and enters the host's IPv4 address. See `PLAYTEST.txt` in the ZIP for remote setup.
 
