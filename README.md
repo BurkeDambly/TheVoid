@@ -8,11 +8,13 @@ Extract the whole ZIP and double-click `ColdLoot.exe`. Unreal Engine is unnecess
 
 Press **F2** for display mode and graphics quality. Press **Q** for Blue Form or **E** for Red Form. Both boost sliding, and **W** powers the slide while a form is active.
 
-### Multiplayer playtest
+### Multiplayer and solo tuning playtest
 
-**[Download the Windows multiplayer playtest](https://github.com/BurkeDambly/Coldzone/releases/download/playtest-2026-11-20-multiplayer-fix/ColdLoot-Windows-Multiplayer.zip)**
+**[Download the Windows tuning playtest](https://github.com/BurkeDambly/Coldzone/releases/download/playtest-2026-11-20-multiplayer-tuning/ColdLoot-Windows-Multiplayer.zip)**
 
-Both players extract the same ZIP. The host runs `Host Cold Loot.cmd`. The guest runs `Join Cold Loot.cmd` and enters the host's IPv4 address. See `PLAYTEST.txt` in the ZIP for remote setup.
+Everyone extracts the same ZIP. For multiplayer, the host runs `Host Cold Loot.cmd`, and guests run `Join Cold Loot.cmd` and enter the host's IPv4 address. For solo testing, open `ColdLoot.exe`. See `PLAYTEST.txt` in the ZIP for remote setup.
+
+Press **F3** to search and tune movement, sliding, flight, swimming, gunplay, and the camera while playing. In multiplayer the host edits the settings, and guests see the active values. **Save preset** keeps those settings for future solo and hosted games on the same PC.
 
 ## Unreal Engine project
 
