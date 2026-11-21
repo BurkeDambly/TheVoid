@@ -193,8 +193,7 @@ bool FPenguinWeaponTest::RunTest(const FString&)
     Advance(12);
 
     const FVector LookDirection = Pawn.Camera->GetForwardVector();
-    const FTransform InitialMuzzle = Pawn.WeaponReceiver->GetSocketTransform(TEXT("Muzzle"));
-    const FVector AimPoint = InitialMuzzle.GetLocation() + InitialMuzzle.GetRotation().GetForwardVector() * 980.0;
+    const FVector AimPoint = Pawn.Camera->GetComponentLocation() + LookDirection * 1600.0;
     AActor* Target = World->SpawnActor<AActor>();
     UBoxComponent* Collider = NewObject<UBoxComponent>(Target);
     Target->SetRootComponent(Collider);
@@ -225,11 +224,12 @@ bool FPenguinWeaponTest::RunTest(const FString&)
     Advance(30);
     const FTransform MuzzleBeforeShot = Pawn.WeaponReceiver->GetSocketTransform(TEXT("Muzzle"));
     const FVector Bore = MuzzleBeforeShot.GetRotation().GetForwardVector();
-    const FVector ReticlePoint = Pawn.GetBoreReticlePoint();
-    TestTrue(TEXT("The bore follows the view and the reticle looks past the target"),
-        FVector::DotProduct(LookDirection, Bore) > 0.999
-        && FVector::Distance(ReticlePoint, MuzzleBeforeShot.GetLocation()) > 10000.0
-        && FVector::DotProduct(Bore, (ReticlePoint - MuzzleBeforeShot.GetLocation()).GetSafeNormal()) > 0.9999);
+    FHitResult AimedHit;
+    TestTrue(TEXT("Turning the whole body brings the barrel line onto the crosshair target"),
+        World->LineTraceSingleByChannel(AimedHit, MuzzleBeforeShot.GetLocation(),
+            MuzzleBeforeShot.GetLocation() + Bore * 2000.0, AColdLootBullet::CollisionChannel,
+            FCollisionQueryParams(SCENE_QUERY_STAT(SlideParkFiringLine), true, &Pawn))
+        && AimedHit.GetActor() == Target);
     Key(EKeys::LeftMouseButton, IE_Pressed);
     Advance(3);
     TActorIterator<AColdLootBullet> Shot(World);
@@ -353,10 +353,8 @@ bool FPenguinWeaponTest::RunTest(const FString&)
     Pawn.LookPitch(11.0f);
     Key(EKeys::RightMouseButton, IE_Pressed);
     Advance(40);
-    const FTransform MuzzleWithoutPole = Pawn.WeaponReceiver->GetSocketTransform(TEXT("Muzzle"));
-    const FVector ReticleWithoutPole = Pawn.GetBoreReticlePoint();
-    const FVector PoleLocation = MuzzleWithoutPole.GetLocation()
-        + MuzzleWithoutPole.GetRotation().GetForwardVector() * 460.0;
+    const FVector PoleDirection = Pawn.Camera->GetForwardVector();
+    const FVector PoleLocation = Pawn.Camera->GetComponentLocation() + PoleDirection * 1100.0;
     AActor* ForegroundPole = World->SpawnActor<AActor>();
     UBoxComponent* PoleCollision = NewObject<UBoxComponent>(ForegroundPole);
     ForegroundPole->SetRootComponent(PoleCollision);
@@ -366,9 +364,8 @@ bool FPenguinWeaponTest::RunTest(const FString&)
     PoleCollision->SetWorldLocation(PoleLocation);
     PoleCollision->RegisterComponent();
     Advance(24);
-    TestTrue(TEXT("The pole leaves the reticle and firing line in place"),
-        Pawn.GetBoreReticlePoint().Equals(ReticleWithoutPole, 0.3)
-        && Pawn.WeaponReceiver->GetSocketTransform(TEXT("Muzzle")).Equals(MuzzleWithoutPole, 0.2));
+    TestTrue(TEXT("A pole under the crosshair does not move the camera"),
+        Pawn.Camera->GetForwardVector().Equals(PoleDirection, 0.0001));
     Key(EKeys::LeftMouseButton, IE_Pressed);
     Advance(1);
     TActorIterator<AColdLootBullet> ForegroundRound(World);

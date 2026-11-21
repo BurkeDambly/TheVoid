@@ -70,18 +70,15 @@ void AColdLootHUD::DrawHUD()
 
     if (Penguin->HasWeapon())
     {
-        FVector2D Center(Canvas->ClipX * 0.5, Canvas->ClipY * 0.5);
+        const FVector2D Center(Canvas->ClipX * 0.5, Canvas->ClipY * 0.5);
         const FLinearColor Reticle = Penguin->CanFire() ? Ice : FLinearColor(Ice.R, Ice.G, Ice.B, 0.4f);
         const float Gap = Penguin->ReticleGap();
-        if (!Penguin->CanFire() || PlayerOwner->ProjectWorldLocationToScreen(Penguin->GetBoreReticlePoint(), Center, true))
+        for (const FVector2D Direction : {FVector2D(1, 0), FVector2D(-1, 0), FVector2D(0, 1), FVector2D(0, -1)})
         {
-            for (const FVector2D Direction : {FVector2D(1, 0), FVector2D(-1, 0), FVector2D(0, 1), FVector2D(0, -1)})
-            {
-                const FVector2D Inner = Center + Direction * Gap;
-                const FVector2D Outer = Inner + Direction * 6.0f;
-                DrawLine(Inner.X, Inner.Y, Outer.X, Outer.Y, FLinearColor::Black, 3.0f);
-                DrawLine(Inner.X, Inner.Y, Outer.X, Outer.Y, Reticle, 1.4f);
-            }
+            const FVector2D Inner = Center + Direction * Gap;
+            const FVector2D Outer = Inner + Direction * 6.0f;
+            DrawLine(Inner.X, Inner.Y, Outer.X, Outer.Y, FLinearColor::Black, 3.0f);
+            DrawLine(Inner.X, Inner.Y, Outer.X, Outer.Y, Reticle, 1.4f);
         }
     }
     DrawText(TEXT("LMB Fire   /   RMB Aim   /   E Red Form"), Ice, 41, 116);

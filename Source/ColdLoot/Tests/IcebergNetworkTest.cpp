@@ -88,7 +88,6 @@ bool FIcebergWeaponTest::RunTest(const FString&)
     Advance(1);
     const FTransform Muzzle = Penguin->WeaponReceiver->GetSocketTransform(MuzzleName);
     const FVector Bore = Muzzle.GetRotation().GetForwardVector();
-    const FVector ReticlePoint = Penguin->GetBoreReticlePoint();
     TestTrue(TEXT("The body and bore track mouse input during ADS in one frame"),
         FVector::DotProduct(Penguin->BodyPivot->GetForwardVector(),
             Penguin->Camera->GetForwardVector().GetSafeNormal2D()) > 0.9999
@@ -101,24 +100,65 @@ bool FIcebergWeaponTest::RunTest(const FString&)
     Collider->SetBoxExtent(FVector(14.0));
     Collider->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     Collider->SetCollisionResponseToAllChannels(ECR_Block);
-    const FVector ViewTarget = Penguin->Camera->GetComponentLocation() + Penguin->Camera->GetForwardVector() * 1300.0;
-    Collider->SetWorldLocation(ViewTarget);
+    Collider->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+    const FVector CameraLocation = Penguin->Camera->GetComponentLocation();
+    const FVector CameraDirection = Penguin->Camera->GetForwardVector();
+    const double MuzzleDepth = FVector::DotProduct(Muzzle.GetLocation() - CameraLocation, CameraDirection);
+    Collider->SetWorldLocation(CameraLocation + CameraDirection * (MuzzleDepth + 160.0)
+        + Penguin->Camera->GetRightVector() * 55.0);
     Collider->RegisterComponent();
-    Advance(26);
-    TestTrue(TEXT("A target in the camera center does not steer the muzzle"),
+    Advance(1);
+    TestTrue(TEXT("An object beside the crosshair does not turn the penguin"),
         Penguin->WeaponReceiver->GetSocketTransform(MuzzleName).Equals(Muzzle, 0.3));
 
-    const FVector BoreTarget = Muzzle.GetLocation() + Bore * 650.0;
-    Collider->SetWorldLocation(BoreTarget);
-    TestTrue(TEXT("The reticle stays on the same bore line when a nearby target crosses it"),
-        Penguin->GetBoreReticlePoint().Equals(ReticlePoint, 0.3)
-        && (ReticlePoint - Muzzle.GetLocation()).GetSafeNormal().Equals(Bore, 0.001));
-    Collider->SetWorldLocation(Muzzle.GetLocation() + Bore * 2.0);
-    TestTrue(TEXT("An obstruction at the muzzle also leaves the reticle in place"),
-        Penguin->GetBoreReticlePoint().Equals(ReticlePoint, 0.3));
-    Collider->SetWorldLocation(BoreTarget);
+    const FTransform HoldInBody = Muzzle.GetRelativeTransform(Penguin->BodyPivot->GetComponentTransform());
+    for (const double Range : {160.0, 900.0, 4500.0})
+    {
+        Collider->SetWorldLocation(CameraLocation + CameraDirection * (MuzzleDepth + Range));
+        Advance(1);
+        const FTransform AimedMuzzle = Penguin->WeaponReceiver->GetSocketTransform(MuzzleName);
+        FHitResult Hit;
+        const bool bHits = World->LineTraceSingleByChannel(Hit, AimedMuzzle.GetLocation(),
+            AimedMuzzle.GetLocation() + AimedMuzzle.GetRotation().GetForwardVector() * (Range + 400.0),
+            AColdLootBullet::CollisionChannel, FCollisionQueryParams(SCENE_QUERY_STAT(FiringLineTest), true, Penguin));
+        TestTrue(FString::Printf(TEXT("The actual barrel line hits the crosshair target at %.1f m"), Range / 100.0),
+            bHits && Hit.GetActor() == Target);
+        TestTrue(TEXT("Close-range correction turns the whole body with the same flipper pose"),
+            AimedMuzzle.GetRelativeTransform(Penguin->BodyPivot->GetComponentTransform()).Equals(HoldInBody, 0.1)
+            && Penguin->Camera->GetForwardVector().Equals(CameraDirection, 0.0001));
+    }
+
+    Collider->SetWorldLocation(CameraLocation + CameraDirection * (MuzzleDepth + 160.0));
+    Penguin->StartFire();
+    Advance(1);
+    Penguin->StopFire();
+    if (TActorIterator<AColdLootBullet> Shot(World); TestTrue(TEXT("A shot launches at the close target"), static_cast<bool>(Shot)))
+    {
+        auto* Flight = Shot->FindComponentByClass<UProjectileMovementComponent>();
+        Flight->TickComponent(0.04f, LEVELTICK_All, nullptr);
+        TestFalse(TEXT("The projectile collides with the close target under the crosshair"), Flight->bShouldBounce);
+        Shot->Destroy();
+    }
+    Target->Destroy();
+
+    Penguin->ResetFlat();
+    Penguin->LookPitch(-32.0f);
+    Advance(1);
+    FHitResult SnowHit;
+    const FVector SnowView = Penguin->Camera->GetComponentLocation();
+    const FCollisionQueryParams Query(SCENE_QUERY_STAT(CloseSnowAimTest), true, Penguin);
+    const bool bSeesSnow = World->LineTraceSingleByChannel(SnowHit, SnowView,
+        SnowView + Penguin->Camera->GetForwardVector() * 3000.0, AColdLootBullet::CollisionChannel, Query);
+    const FTransform DownMuzzle = Penguin->WeaponReceiver->GetSocketTransform(MuzzleName);
+    TestTrue(TEXT("Looking down lines up the bore with the nearby snow under the crosshair"),
+        bSeesSnow && FVector::CrossProduct(SnowHit.ImpactPoint - DownMuzzle.GetLocation(),
+            DownMuzzle.GetRotation().GetForwardVector()).Size() < 2.0);
+
+    Penguin->ResetFlat();
+    Penguin->LookPitch(9.0f);
+    Advance(1);
     Penguin->LookYaw(21.0f);
-    Penguin->LookPitch(-7.0f);
+    Penguin->LookPitch(3.0f);
     Penguin->StartFire();
     Advance(1);
     const FTransform ShotMuzzle = Penguin->WeaponReceiver->GetSocketTransform(MuzzleName);
@@ -130,7 +170,6 @@ bool FIcebergWeaponTest::RunTest(const FString&)
             && FVector::DotProduct(Flight->Velocity.GetSafeNormal(), ShotMuzzle.GetRotation().GetForwardVector()) > 0.99999);
         Shot->Destroy();
     }
-    Target->Destroy();
     Penguin->StopFire();
     Penguin->StopAim();
     Penguin->ResetFlat();

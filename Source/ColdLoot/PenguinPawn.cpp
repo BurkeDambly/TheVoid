@@ -44,7 +44,7 @@ constexpr double UphillLaunchRise = 0.20;
 constexpr double UphillLaunchLift = 460.0;
 constexpr double RolloverLift = 85.0;
 constexpr float SlideLandingRunout = 400.0f;
-constexpr double BoreReticleDistance = 12000.0;
+constexpr double CrosshairTraceDistance = 26000.0;
 constexpr float WeaponHoldSeconds = 2.0f;
 constexpr float RecoilRecoverySeconds = 0.13f;
 constexpr double RecoilStrength = 0.60;
@@ -153,7 +153,7 @@ void APenguinPawn::BeginPlay()
     PenguinMesh->AddTickPrerequisiteComponent(CameraArm);
     PenguinMesh->SetAnimInstanceClass(UPenguinAnimInstance::StaticClass());
     PenguinMesh->RegisterOnBoneTransformsFinalizedDelegate(
-        FOnBoneTransformsFinalizedMultiCast::FDelegate::CreateUObject(this, &APenguinPawn::FireFromUpdatedPose));
+        FOnBoneTransformsFinalizedMultiCast::FDelegate::CreateUObject(this, &APenguinPawn::FinishWeaponPose));
     PenguinMesh->SetRelativeRotation(FRotator(0, MeshYawOffset, 0));
     HipArmLength = CameraArm->TargetArmLength * HipCameraDistanceScale;
     CameraArm->TargetArmLength = HipArmLength;
@@ -265,16 +265,14 @@ float APenguinPawn::ReticleGap() const
     return FMath::Lerp(bSprinting ? 16.0f : 10.0f, 4.0f, AimBlend);
 }
 
-bool APenguinPawn::TraceMuzzleObstruction(const FVector& GripLocation, const FVector& MuzzleLocation, FHitResult& Hit) const
+bool APenguinPawn::TraceMuzzleObstruction(const FVector& GripLocation, const FTransform& Muzzle, FHitResult& Hit) const
 {
+    const FVector Origin = Muzzle.GetLocation();
+    const FVector Bore = Muzzle.GetRotation().GetForwardVector();
+    const double BarrelDepth = FMath::Max(0.0, FVector::DotProduct(Origin - GripLocation, Bore));
     const FCollisionQueryParams Query(SCENE_QUERY_STAT(MuzzleClearance), true, this);
-    return GetWorld()->LineTraceSingleByChannel(Hit, GripLocation, MuzzleLocation, AColdLootBullet::CollisionChannel, Query);
-}
-
-FVector APenguinPawn::GetBoreReticlePoint() const
-{
-    const FTransform Muzzle = WeaponReceiver->GetSocketTransform(MuzzleSocket);
-    return Muzzle.GetLocation() + Muzzle.GetRotation().GetForwardVector() * BoreReticleDistance;
+    return GetWorld()->SweepSingleByChannel(Hit, Origin - Bore * BarrelDepth, Origin, FQuat::Identity,
+        AColdLootBullet::CollisionChannel, FCollisionShape::MakeSphere(AColdLootBullet::CollisionRadius), Query);
 }
 
 FVector APenguinPawn::GetWeaponAimDirection() const
@@ -393,23 +391,71 @@ void APenguinPawn::UpdateWeapon(float DeltaSeconds)
     bFireAfterPose = ShotCooldown <= KINDA_SMALL_NUMBER && (!bSprintFire || SprintFireBlend >= 0.99f);
 }
 
-void APenguinPawn::FireFromUpdatedPose()
+void APenguinPawn::AlignBodyToCrosshair(FTransform& Muzzle, FVector& GripLocation)
 {
+    const FVector CameraOrigin = Camera->GetComponentLocation();
+    const FVector Aim = GetWeaponAimDirection();
+    const FCollisionQueryParams Query(SCENE_QUERY_STAT(CrosshairSurface), true, this);
+    FHitResult Hit;
+    if (!GetWorld()->LineTraceSingleByChannel(Hit, CameraOrigin, CameraOrigin + Aim * CrosshairTraceDistance,
+        AColdLootBullet::CollisionChannel, Query))
+    {
+        return;
+    }
+
+    const FVector Pivot = BodyPivot->GetComponentLocation();
+    const FVector ToSurface = Hit.ImpactPoint - Pivot;
+    if (FVector::DotProduct(ToSurface, Aim) <= 0.0)
+    {
+        return;
+    }
+
+    // Find the forward point on the current bore at the target's radius from the body pivot.
+    // Rotating that point onto the chosen surface carries the entire weapon hold with the body.
+    const FVector Bore = Muzzle.GetRotation().GetForwardVector();
+    const FVector BoreOffset = FVector::VectorPlaneProject(Muzzle.GetLocation() - Pivot, Bore);
+    const double ForwardDistanceSquared = ToSurface.SizeSquared() - BoreOffset.SizeSquared();
+    if (ForwardDistanceSquared <= 0.0)
+    {
+        return;
+    }
+    const FVector Current = BoreOffset + Bore * FMath::Sqrt(ForwardDistanceSquared);
+    const FQuat Turn = FQuat::FindBetweenVectors(Current, ToSurface);
+    BodyPivot->SetWorldRotation(Turn * BodyPivot->GetComponentQuat());
+    Facing = BodyPivot->GetForwardVector().GetSafeNormal2D();
+    Muzzle.SetLocation(Pivot + Turn.RotateVector(Muzzle.GetLocation() - Pivot));
+    Muzzle.SetRotation(Turn * Muzzle.GetRotation());
+    GripLocation = Pivot + Turn.RotateVector(GripLocation - Pivot);
+}
+
+void APenguinPawn::FinishWeaponPose()
+{
+    if (!bAimAfterPose && !bFireAfterPose)
+    {
+        return;
+    }
+
+    // The flipper pose is final here. Its attached components update after this callback.
+    const FTransform Grip = WeaponGrip->GetRelativeTransform()
+        * PenguinMesh->GetSocketTransform(WeaponGrip->GetAttachSocketName());
+    FTransform Muzzle = WeaponReceiver->GetSocketTransform(MuzzleSocket, RTS_Component)
+        * WeaponReceiver->GetRelativeTransform() * Grip;
+    FVector GripLocation = Grip.GetLocation();
+    if (bAimAfterPose)
+    {
+        bAimAfterPose = false;
+        AlignBodyToCrosshair(Muzzle, GripLocation);
+    }
     if (!bFireAfterPose)
     {
         return;
     }
     bFireAfterPose = false;
     const bool bSprintFire = IsSprintFiring();
-    // The flipper pose is final here. Its attached components update after this callback.
-    const FTransform Grip = WeaponGrip->GetRelativeTransform()
-        * PenguinMesh->GetSocketTransform(WeaponGrip->GetAttachSocketName());
-    const FTransform Muzzle = WeaponReceiver->GetSocketTransform(MuzzleSocket, RTS_Component)
-        * WeaponReceiver->GetRelativeTransform() * Grip;
     const float Interval = 1.0f / FMath::Clamp(WeaponDefinition->RoundsPerSecond, 1.0f, 30.0f);
     do
     {
-        FireBullet(Muzzle, Grip.GetLocation());
+        FireBullet(Muzzle, GripLocation);
         ShotCooldown += Interval;
         ShotRequestTime = 0.0f;
     } while (bFireHeld && ShotCooldown <= KINDA_SMALL_NUMBER);
@@ -427,7 +473,7 @@ void APenguinPawn::FireBullet(const FTransform& Muzzle, const FVector& GripLocat
 
     // A wall between the grip and muzzle must stop the shot before it spawns.
     FHitResult Obstruction;
-    const bool bMuzzleBlocked = TraceMuzzleObstruction(GripLocation, Origin, Obstruction);
+    const bool bMuzzleBlocked = TraceMuzzleObstruction(GripLocation, Muzzle, Obstruction);
     if (!bMuzzleBlocked)
     {
         FActorSpawnParameters Parameters;
@@ -495,7 +541,7 @@ void APenguinPawn::ResetAt(double X, double Y)
     SlideFlightSpeedScale = 1.0f;
     NextSlideLaunchDistance = 0.0f;
     AimBlend = ShotCooldown = ShotRequestTime = 0.0f;
-    bFireAfterPose = false;
+    bFireAfterPose = bAimAfterPose = false;
     CameraKick = SprintSpread = FVector2D::ZeroVector;
     RecoilOffset = RecoilGoal = FVector2D::ZeroVector;
     RecoilRecoveryDelay = 0.0f;
@@ -684,6 +730,7 @@ void APenguinPawn::Tick(float DeltaSeconds)
         return;
     }
 
+    bAimAfterPose = false;
     const FRotator ViewYaw = GetLookYaw();
     const FVector MoveInput(ForwardInput, RightInput, 0);
     const FVector Wish = ViewYaw.RotateVector(MoveInput).GetClampedToMaxSize(1.0);
@@ -730,6 +777,7 @@ void APenguinPawn::Tick(float DeltaSeconds)
     const FVector Up = FMath::Lerp(FVector::UpVector, SurfaceUp, 0.28f + 0.72f * BellyWeight).GetSafeNormal();
     UpdateWeapon(DeltaSeconds);
     const bool bAimFacing = CanFire();
+    bAimAfterPose = bAimFacing;
     const bool bMoving = !MoveInput.IsNearlyZero() || GroundSpeed > 2.0f;
     const bool bFaceView = bAimFacing || (!bSliding && bMoving);
     const FVector ViewFacing = bAimFacing

@@ -119,7 +119,6 @@ public:
     bool IsSwimming() const { return bSwimming; }
     double GetSwimDepth() const { return SwimDepth; }
     float ReticleGap() const;
-    FVector GetBoreReticlePoint() const;
 
 private:
     friend class FPenguinAnimProxy;
@@ -134,7 +133,8 @@ private:
     void StopFire() { bFireHeld = false; }
     bool WantsToFire() const { return bFireHeld || ShotRequestTime > 0.0f; }
     void UpdateWeapon(float DeltaSeconds);
-    void FireFromUpdatedPose();
+    void FinishWeaponPose();
+    void AlignBodyToCrosshair(FTransform& Muzzle, FVector& GripLocation);
     void UpdateRecoil(float DeltaSeconds);
     void AddShotRecoil();
     void UpdateCameraRecoil();
@@ -142,7 +142,7 @@ private:
     FVector GetWeaponAimDirection() const;
     bool IsSprintFiring() const { return bSprinting && WantsToFire() && CanFire(); }
     void RollSprintSpread();
-    bool TraceMuzzleObstruction(const FVector& GripLocation, const FVector& MuzzleLocation, FHitResult& Hit) const;
+    bool TraceMuzzleObstruction(const FVector& GripLocation, const FTransform& Muzzle, FHitResult& Hit) const;
     void Step(float Seconds, const FVector& Wish);
     void StepSwimming(float Seconds);
     void EnterWater(FVector Position, double SurfaceZ, const FVector& EntryVelocity);
@@ -230,6 +230,7 @@ private:
     float ShotRequestTime = 0.0f;
     bool bFireHeld = false;
     bool bFireAfterPose = false;
+    bool bAimAfterPose = false;
     bool bAimHeld = false;
 
     FVector Heading = FVector::ForwardVector;
