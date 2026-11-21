@@ -8,6 +8,12 @@ Extract the whole ZIP and double-click `ColdLoot.exe`. Unreal Engine is unnecess
 
 Press **F2** for display mode and graphics quality. Press **Q** for Blue Form or **E** for Red Form. Both boost sliding, and **W** powers the slide while a form is active.
 
+### Multiplayer playtest
+
+**[Download the Windows multiplayer playtest](https://github.com/BurkeDambly/Coldzone/releases/download/playtest-2026-11-20-multiplayer/ColdLoot-Windows-Multiplayer.zip)**
+
+Both players extract the same ZIP. The host runs `Host Cold Loot.cmd`. The guest runs `Join Cold Loot.cmd` and enters the host's IPv4 address. See `PLAYTEST.txt` in the ZIP for remote setup.
+
 ## Unreal Engine project
 
 Open `ColdLoot.uproject` in Unreal Engine 5.7. **IcebergNetwork** opens by default. Press **Play**.
