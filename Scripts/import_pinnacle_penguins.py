@@ -1,5 +1,6 @@
 """Import the faction meshes and place their wandering actors in Base Island."""
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -11,6 +12,13 @@ NETWORK = "/Game/Maps/IcebergNetwork"
 BASE_ISLAND = "/Game/Maps/IcebergIslands/BaseIsland"
 FOLDER = f"{PENGUIN}/Pinnacle"
 SOURCE = FBX / "Pinnacle"
+ROSTER = (
+    ("Whiteout", "Whiteout Pinnacle", -80, -430, 155, 290, 100),
+    ("Forgekeeper", "Foundry Forgekeeper", 150, 420, -145, 290, 90),
+    ("Stormstitch", "Weave Stormstitch", 520, -680, 145, 175, 95),
+    ("Sunmarshal", "Dawnward Sunmarshal", 600, 670, -145, 190, 88),
+    ("Nightglass", "PenGru Nightglass", -760, 110, 25, 185, 105),
+)
 library = unreal.EditorAssetLibrary
 edit = unreal.MaterialEditingLibrary
 
@@ -69,6 +77,10 @@ def import_model(name, palette, skeleton, base_materials):
 
 
 def main():
+    selection = os.environ.get("COLDLOOT_PINNACLE_MODELS", "").split()
+    roster = [entry for entry in ROSTER if not selection or entry[0] in selection]
+    if selection and set(selection) != {entry[0] for entry in roster}:
+        raise ValueError(f"Unknown faction model in {selection}")
     unreal.SystemLibrary.execute_console_command(None, "Interchange.FeatureFlags.Import.FBX 0")
     npc_class = unreal.load_class(None, "/Script/ColdLoot.PinnaclePenguin")
     island_class = unreal.load_class(None, "/Script/ColdLoot.IcebergIsland")
@@ -90,10 +102,7 @@ def main():
         for slot in base_mesh.get_editor_property("materials")
     }
     palettes = json.loads((SOURCE / "Materials.json").read_text(encoding="utf-8"))
-    for model, label, x, y, yaw, radius, speed in (
-        ("Whiteout", "Whiteout Pinnacle", -80, -430, 155, 290, 100),
-        ("Forgekeeper", "Foundry Forgekeeper", 150, 420, -145, 290, 90),
-    ):
+    for model, label, x, y, yaw, radius, speed in roster:
         mesh = import_model(model, palettes[model], base_mesh.get_editor_property("skeleton"), base_materials)
         npc = next((actor for actor in all_actors if actor.get_class() == npc_class
                     and actor.get_actor_label() == label), None)
@@ -115,7 +124,7 @@ def main():
         component.set_relative_location(unreal.Vector(0, 0, bounds.box_extent.z - bounds.origin.z), False, True)
     if not levels.save_current_level():
         raise RuntimeError(f"Could not save {BASE_ISLAND}")
-    unreal.log("Placed Whiteout Pinnacle and Foundry Forgekeeper on Base Island")
+    unreal.log(f"Placed faction NPCs on Base Island: {', '.join(entry[1] for entry in roster)}")
 
 
 if __name__ == "__main__":

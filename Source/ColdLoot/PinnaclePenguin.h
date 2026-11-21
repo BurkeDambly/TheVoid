@@ -1,12 +1,28 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/Actor.h"
 #include "PinnaclePenguin.generated.h"
 
 class AIcebergIsland;
 class UAnimSequence;
-class USkeletalMeshComponent;
+
+UCLASS()
+class UPinnaclePenguinMeshComponent : public USkeletalMeshComponent
+{
+    GENERATED_BODY()
+
+public:
+    int32 GetFootBoneIndex(int32 Side) const;
+    void PlantFeet();
+    void BlendOutFootPlant(float DeltaSeconds);
+    virtual void FinalizeBoneTransform() override;
+
+private:
+    FTransform PlantedFeet[2];
+    float FootPlantWeight = 0.0f;
+};
 
 UCLASS()
 class APinnaclePenguin : public AActor
@@ -34,10 +50,11 @@ protected:
 
 private:
     UPROPERTY(VisibleAnywhere)
-    TObjectPtr<USkeletalMeshComponent> PenguinMesh;
+    TObjectPtr<UPinnaclePenguinMeshComponent> PenguinMesh;
 
     FVector2D Home;
     FVector2D Destination;
     float PauseRemaining = 0.0f;
     bool bWalking = false;
+    bool bTurning = false;
 };

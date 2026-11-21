@@ -7,6 +7,8 @@
 
 AColdLootPracticeTarget::AColdLootPracticeTarget()
 {
+    bReplicates = true;
+    SetReplicateMovement(true);
     Barrel = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Barrel"));
     SetRootComponent(Barrel);
     static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));

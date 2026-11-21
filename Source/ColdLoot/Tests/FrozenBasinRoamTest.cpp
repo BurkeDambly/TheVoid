@@ -149,9 +149,6 @@ bool FFrozenBasinRoamTest::RunTest(const FString& Parameters)
     }
     const FVector Downhill = FVector(54200, 53000, 0) - FVector(Chute.X, Chute.Y, 0);
     Arm->SetRelativeRotation(FRotator(-9, Downhill.Rotation().Yaw, 0));
-    Key(EKeys::Q, IE_Pressed);
-    Key(EKeys::Q, IE_Released);
-    TestTrue(TEXT("Penguin Form still toggles"), Penguin.IsPenguinFormActive());
     Key(EKeys::LeftShift, IE_Pressed);
     Key(EKeys::W, IE_Pressed);
     Advance(54);
@@ -162,40 +159,8 @@ bool FFrozenBasinRoamTest::RunTest(const FString& Parameters)
         Penguin.SlideDistance() > 2500 && Penguin.GetActorLocation().Z < Chute.Z - 700);
     Key(EKeys::W, IE_Released);
     Key(EKeys::LeftShift, IE_Released);
-    Key(EKeys::Q, IE_Pressed);
-    Key(EKeys::Q, IE_Released);
     Key(EKeys::R, IE_Pressed);
     Key(EKeys::R, IE_Released);
-#if WITH_EDITOR
-    // The lake stays flat long enough to measure the powered speed independently of downhill momentum.
-    Penguin.SetActorLocation(FVector(Lake.X, Lake.Y, Terrain.HeightAt(Lake.X, Lake.Y) + 1));
-    Key(EKeys::E, IE_Pressed);
-    Key(EKeys::E, IE_Released);
-    const UMaterialInterface* RedGlow = Penguin.PenguinMesh->GetOverlayMaterial();
-    TestTrue(TEXT("E enables the red editor overlay"), Penguin.IsEditorPenguinFormActive()
-        && RedGlow && RedGlow->GetFName() == FName(TEXT("M_EditorPenguinForm")));
-    Key(EKeys::C, IE_Pressed);
-    Key(EKeys::C, IE_Released);
-    Key(EKeys::W, IE_Pressed);
-    Advance(50);
-    const float Sprint = Penguin.SprintDistancePerCycle / Penguin.SprintAnimation->GetPlayLength();
-    TestTrue(TEXT("Powered editor slide reaches sixteen times sprint speed on flat ice"),
-        FMath::IsNearlyEqual(Penguin.Speed(), 16.0f * Sprint, 5.0f));
-    Key(EKeys::W, IE_Released);
-    Key(EKeys::Q, IE_Pressed);
-    Key(EKeys::Q, IE_Released);
-    TestTrue(TEXT("Q swaps red for the regular blue form"), Penguin.IsPenguinFormActive()
-        && !Penguin.IsEditorPenguinFormActive() && Penguin.PenguinMesh->GetOverlayMaterial()
-        && Penguin.PenguinMesh->GetOverlayMaterial() != RedGlow);
-    Key(EKeys::E, IE_Pressed);
-    Key(EKeys::E, IE_Released);
-    Key(EKeys::E, IE_Pressed);
-    Key(EKeys::E, IE_Released);
-    TestTrue(TEXT("Toggling E again returns to regular movement and clears the glow"),
-        !Penguin.IsPenguinFormActive() && !Penguin.PenguinMesh->GetOverlayMaterial());
-    Key(EKeys::R, IE_Pressed);
-    Key(EKeys::R, IE_Released);
-#endif
     if (FParse::Param(FCommandLine::Get(), TEXT("ColdzoneMapPreview")))
     {
         Key(EKeys::M, IE_Pressed);

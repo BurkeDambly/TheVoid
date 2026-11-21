@@ -1,6 +1,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #include "../ColdLootGameMode.h"
+#include "../ColdLootTuning.h"
 #include "../ColdLootBullet.h"
 #include "../ColdLootWeaponDefinition.h"
 #include "../IcebergIsland.h"
@@ -27,6 +28,7 @@
 #include "Misc/AutomationTest.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
+#include "ProceduralMeshComponent.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "SkeletalRenderPublic.h"
 #include "UnrealClient.h"
@@ -52,6 +54,14 @@ bool FIcebergWeaponTest::RunTest(const FString&)
     {
         return false;
     }
+    AColdLootGameState* GameState = World->GetGameState<AColdLootGameState>();
+    if (!TestNotNull(TEXT("The game exposes playtest tuning"), GameState))
+    {
+        return false;
+    }
+    const auto BulletSpeed = EColdLootTuning::BulletSpeed;
+    const float OriginalBulletScale = GameState->GetTuning().Get(BulletSpeed);
+    const double ModeSpeed = World->GetNetMode() == NM_Standalone ? 2.5 : 1.0;
 
     auto Advance = [Penguin](int32 Frames)
     {
@@ -135,6 +145,9 @@ bool FIcebergWeaponTest::RunTest(const FString&)
     if (TActorIterator<AColdLootBullet> Shot(World); TestTrue(TEXT("A shot launches at the close target"), static_cast<bool>(Shot)))
     {
         auto* Flight = Shot->FindComponentByClass<UProjectileMovementComponent>();
+        TestTrue(TEXT("The projectile starts at the current game mode's speed"),
+            FMath::IsNearlyEqual(Flight->Velocity.Size(),
+                Penguin->WeaponDefinition->BulletSpeed * ModeSpeed * OriginalBulletScale, 1.0));
         Flight->TickComponent(0.04f, LEVELTICK_All, nullptr);
         TestFalse(TEXT("The projectile collides with the close target under the crosshair"), Flight->bShouldBounce);
         Shot->Destroy();
@@ -159,6 +172,7 @@ bool FIcebergWeaponTest::RunTest(const FString&)
     Advance(1);
     Penguin->LookYaw(21.0f);
     Penguin->LookPitch(3.0f);
+    TestTrue(TEXT("Solo tuning allows a live bullet speed change"), GameState->SetTuning(BulletSpeed, 1.35f));
     Penguin->StartFire();
     Advance(1);
     const FTransform ShotMuzzle = Penguin->WeaponReceiver->GetSocketTransform(MuzzleName);
@@ -168,10 +182,82 @@ bool FIcebergWeaponTest::RunTest(const FString&)
         TestTrue(TEXT("The projectile starts at the muzzle and uses the new aim on the same frame"),
             FVector::Dist(Shot->GetActorLocation(), ShotMuzzle.GetLocation()) < 1.0
             && FVector::DotProduct(Flight->Velocity.GetSafeNormal(), ShotMuzzle.GetRotation().GetForwardVector()) > 0.99999);
+        TestTrue(TEXT("The next shot uses the live bullet speed setting"),
+            FMath::IsNearlyEqual(Flight->Velocity.Size(), Penguin->WeaponDefinition->BulletSpeed * ModeSpeed * 1.35, 1.0));
         Shot->Destroy();
     }
     Penguin->StopFire();
     Penguin->StopAim();
+    Penguin->ResetFlat();
+    GameState->SetTuning(BulletSpeed, OriginalBulletScale);
+
+    const auto WalkSpeed = EColdLootTuning::WalkSpeed;
+    const float OriginalWalkScale = GameState->GetTuning().Get(WalkSpeed);
+    const float DefaultWalkSpeed = Penguin->GetGaitSpeed(false) / OriginalWalkScale;
+    GameState->SetTuning(WalkSpeed, 1.5f);
+    Penguin->MoveForward(1.0f);
+    Advance(60);
+    TestTrue(TEXT("The next walk reaches the live movement speed setting"),
+        FMath::IsNearlyEqual(Penguin->Speed(), DefaultWalkSpeed * 1.5f, 1.0f));
+    Penguin->MoveForward(0.0f);
+    GameState->SetTuning(WalkSpeed, OriginalWalkScale);
+    Penguin->ResetFlat();
+
+    AColdLootHUD* HUD = Cast<AColdLootHUD>(Controller->GetHUD());
+    if (TestNotNull(TEXT("The player has the Cold Loot HUD"), HUD))
+    {
+        Penguin->ToggleTuningMenu();
+        TestTrue(TEXT("The tuning menu opens for the solo player"), HUD->IsTuningMenuOpen());
+        HUD->ToggleTuningMenu();
+        TestFalse(TEXT("The tuning menu resumes gameplay"), HUD->IsTuningMenuOpen());
+    }
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPenguinWaddleVisibilityTest, "ColdLoot.IcebergNetwork.WaddleVisibility",
+    EAutomationTestFlags::ClientContext | EAutomationTestFlags::ProductFilter)
+
+bool FPenguinWaddleVisibilityTest::RunTest(const FString&)
+{
+    APenguinPawn* Penguin = nullptr;
+    for (const FWorldContext& Context : GEngine->GetWorldContexts())
+    {
+        if (Context.World() && (Context.WorldType == EWorldType::Game || Context.WorldType == EWorldType::PIE))
+        {
+            APlayerController* Player = Context.World()->GetFirstPlayerController();
+            Penguin = Player ? Cast<APenguinPawn>(Player->GetPawn()) : nullptr;
+            break;
+        }
+    }
+    if (!TestTrue(TEXT("Player has both waddle clips and a weapon"),
+        Penguin && Penguin->WalkWaddleAnimation && Penguin->SprintWaddleAnimation && Penguin->HasWeapon()))
+    {
+        return false;
+    }
+
+    Penguin->ResetFlat();
+    Penguin->GroundSpeed = 200.0f;
+    const bool bWasVisible = Penguin->WeaponGrip->IsVisible();
+    const auto MeasureSway = [Penguin](bool bVisible, float Phase)
+    {
+        Penguin->WeaponGrip->SetVisibility(bVisible, true);
+        const auto SampleRotation = [Penguin](float SamplePhase)
+        {
+            Penguin->GaitPhase = SamplePhase;
+            Penguin->PenguinMesh->TickAnimation(1.0f / 60.0f, false);
+            Penguin->PenguinMesh->RefreshBoneTransforms();
+            return Penguin->PenguinMesh->GetSocketTransform(TEXT("Root"), RTS_Component).GetRotation();
+        };
+        const FQuat First = SampleRotation(Phase);
+        return FMath::RadiansToDegrees(First.AngularDistance(SampleRotation(Phase + 0.5f)));
+    };
+    Penguin->SprintBlend = 0.0f;
+    TestTrue(TEXT("Walk stays steady with the weapon visible"), MeasureSway(true, 0.3f) < 1.0);
+    TestTrue(TEXT("Walk waddles with the weapon hidden"), MeasureSway(false, 0.3f) > 10.0);
+    Penguin->SprintBlend = 1.0f;
+    TestTrue(TEXT("Sprint stays steady with the weapon visible"), MeasureSway(true, 0.12f) < 1.0);
+    TestTrue(TEXT("Sprint waddles with the weapon hidden"), MeasureSway(false, 0.12f) > 10.0);
+    Penguin->WeaponGrip->SetVisibility(bWasVisible, true);
     Penguin->ResetFlat();
     return true;
 }
@@ -245,28 +331,17 @@ bool FIcebergNetworkTest::RunTest(const FString& Parameters)
         Key(Button, IE_Released);
     };
 
+    Tap(EKeys::C);
+    const float NormalSpeed = Penguin->Speed();
+    Tap(EKeys::Q);
+    Tap(EKeys::E);
+    TestTrue(TEXT("Q and E leave the default slide and materials alone"),
+        Penguin->bSliding && NormalSpeed > 0.0f && Penguin->Speed() == NormalSpeed
+        && !Penguin->PenguinMesh->GetOverlayMaterial());
+    Tap(EKeys::R);
+
     if (FParse::Param(FCommandLine::Get(), TEXT("ColdzonePlaytestSmoke")))
     {
-        Tap(EKeys::C);
-        const float NormalSpeed = Penguin->Speed();
-        Tap(EKeys::Q);
-        const float BlueSpeed = Penguin->Speed();
-        TestTrue(TEXT("Q activates the blue overlay and increases slide speed"),
-            Penguin->IsPenguinFormActive() && !Penguin->IsEditorPenguinFormActive()
-            && Penguin->PenguinMesh->GetOverlayMaterial()
-            && Penguin->PenguinMesh->GetOverlayMaterial()->GetFName() == TEXT("M_PenguinForm")
-            && NormalSpeed > 0.0f && BlueSpeed > NormalSpeed);
-        Tap(EKeys::E);
-        TestTrue(TEXT("E activates the red overlay and a stronger slide boost"),
-            Penguin->IsEditorPenguinFormActive()
-            && Penguin->PenguinMesh->GetOverlayMaterial()
-            && Penguin->PenguinMesh->GetOverlayMaterial()->GetFName() == TEXT("M_EditorPenguinForm")
-            && Penguin->Speed() > BlueSpeed);
-        AddInfo(FString::Printf(TEXT("Slide speeds in normal, blue and red forms: %.0f / %.0f / %.0f cm/s"),
-            NormalSpeed, BlueSpeed, Penguin->Speed()));
-        Tap(EKeys::E);
-        Tap(EKeys::R);
-
         Tap(EKeys::F2);
         if (!TestTrue(TEXT("F2 opens the graphics menu and pauses the game"),
             HUD->IsGraphicsMenuOpen() && World->IsPaused()))
@@ -398,16 +473,18 @@ bool FIcebergNetworkTest::RunTest(const FString& Parameters)
         {
             Penguin->Tick(Frame);
         }
-        const double EntrySpeed = Penguin->Speed();
+        const double GaitSpeed = Penguin->Speed();
+        TestTrue(bSprint ? TEXT("Sprint speed is restored to about 6.4 m/s") : TEXT("Walk speed is about 3.4 m/s"),
+            FMath::IsNearlyEqual(GaitSpeed, bSprint ? 643.0 : 341.0, 10.0));
         Tap(EKeys::C);
-        TestTrue(TEXT("A moving slide starts with the current speed"),
-            EntrySpeed > 65.0 && FMath::IsNearlyEqual(Penguin->Speed(), EntrySpeed, 1.0));
+        const double EntrySpeed = Penguin->Speed();
+        TestTrue(TEXT("The moving slide boosts as soon as C is pressed"), EntrySpeed > GaitSpeed + 1500.0);
         Key(EKeys::W, IE_Released);
         if (bSprint)
         {
             Key(EKeys::LeftShift, IE_Released);
         }
-        for (int32 Index = 0; Index < 30; ++Index)
+        for (int32 Index = 0; Index < 90; ++Index)
         {
             Penguin->Tick(Frame);
         }
@@ -415,11 +492,9 @@ bool FIcebergNetworkTest::RunTest(const FString& Parameters)
     };
     const FVector2D SlowGlide = TestGlide(false);
     const FVector2D FastGlide = TestGlide(true);
-    TestTrue(TEXT("A fast slide loses less speed to friction than a slow slide on flat snow"),
-        FastGlide.X > SlowGlide.X && FastGlide.Y > FastGlide.X * 0.88
-        && FastGlide.X - FastGlide.Y < SlowGlide.X - SlowGlide.Y
-        && FastGlide.Y < FastGlide.X);
-    AddInfo(FString::Printf(TEXT("Slide after half a second: walk %.0f to %.0f, sprint %.0f to %.0f cm/s"),
+    TestTrue(TEXT("The sprint entry gives a stronger boost and settles into a fast flat glide"),
+        FastGlide.X > SlowGlide.X && FastGlide.Y > 2000.0 && FastGlide.Y < FastGlide.X * 0.85);
+    AddInfo(FString::Printf(TEXT("Slide after 1.5 seconds: walk %.0f to %.0f, sprint %.0f to %.0f cm/s"),
         SlowGlide.X, SlowGlide.Y, FastGlide.X, FastGlide.Y));
     Tap(EKeys::R);
     Key(EKeys::LeftShift, IE_Pressed);
@@ -428,7 +503,8 @@ bool FIcebergNetworkTest::RunTest(const FString& Parameters)
     {
         int32 SwimFrames = 0;
         bool bReachedLand = false;
-        bool bStayedNearSurface = true;
+        double MaxDepth = 0.0;
+        double CruiseSpeed = 0.0;
         for (int32 Index = 0; Index < 3600; ++Index)
         {
             Penguin->Tick(Frame);
@@ -436,7 +512,11 @@ bool FIcebergNetworkTest::RunTest(const FString& Parameters)
             if (Penguin->IsSwimming())
             {
                 ++SwimFrames;
-                bStayedNearSurface &= Penguin->GetSwimDepth() < 80 && Penguin->Speed() <= 1020;
+                MaxDepth = FMath::Max(MaxDepth, Penguin->GetSwimDepth());
+                if (SwimFrames > 42)
+                {
+                    CruiseSpeed = FMath::Max(CruiseSpeed, static_cast<double>(Penguin->Speed()));
+                }
             }
             else if (SwimFrames > 0 && (bReturning ? Position.X < 6400 : Position.X > 11700))
             {
@@ -445,11 +525,14 @@ bool FIcebergNetworkTest::RunTest(const FString& Parameters)
             }
         }
         TestTrue(bReturning ? TEXT("Penguin swims back and walks onto Base Island")
-                            : TEXT("Penguin swims across and walks onto Expedition Island"), bReachedLand && bStayedNearSurface);
-        TestTrue(TEXT("Direct swim is a short crossing"), SwimFrames > 100 && SwimFrames < 650);
-        AddInfo(FString::Printf(TEXT("Swim crossing took %.1f seconds"), SwimFrames * Frame));
+                            : TEXT("Penguin swims across and walks onto Expedition Island"), bReachedLand && MaxDepth < 80);
+        TestTrue(TEXT("The faster swim cruises near 19 m/s and clears the channel in under 2.5 seconds"),
+            SwimFrames > 50 && SwimFrames < 150 && CruiseSpeed > 1750 && CruiseSpeed < 2150);
+        AddInfo(FString::Printf(TEXT("Swim crossing took %.1f seconds, max depth %.1f cm, peak cruising speed %.0f cm/s"),
+            SwimFrames * Frame, MaxDepth, CruiseSpeed));
     };
     Cross(false);
+    Penguin->ResetAt(13300.0);
     Arm->SetRelativeRotation(FRotator(-9, 180, 0));
     Cross(true);
     Key(EKeys::W, IE_Released);
@@ -465,10 +548,78 @@ bool FIcebergNetworkTest::RunTest(const FString& Parameters)
             Arm->TickComponent(Frame, LEVELTICK_All, nullptr);
         }
     };
-    auto PutInChannel = [&]()
+    for (bool bSprint : {false, true})
+    {
+        Penguin->ResetAt(-700.0, -1200.0);
+        Key(EKeys::W, IE_Pressed);
+        if (bSprint)
+        {
+            Key(EKeys::LeftShift, IE_Pressed);
+        }
+        Advance(36);
+        Key(EKeys::D, IE_Pressed);
+        Advance(2);
+        const double Turn = Penguin->Heading.Rotation().Yaw;
+        TestTrue(bSprint ? TEXT("A sprinting turn covers fifteen degrees in two frames")
+            : TEXT("A walking turn covers thirty degrees in two frames"),
+            FMath::IsNearlyEqual(Turn, bSprint ? 15.0 : 30.0, 0.1));
+        Key(EKeys::W, IE_Released);
+        Key(EKeys::D, IE_Released);
+        if (bSprint)
+        {
+            Key(EKeys::LeftShift, IE_Released);
+        }
+    }
+    for (bool bTestSlide : {false, true})
     {
         Tap(EKeys::R);
-        Penguin->SetActorLocation(FVector(8400, 0, -18));
+        Penguin->ResetAt(-3100.0, -1400.0);
+        Arm->SetRelativeRotation(FRotator(-9.0, 90.0, 0));
+        Key(EKeys::W, IE_Pressed);
+        Key(EKeys::LeftShift, IE_Pressed);
+        Advance(bTestSlide ? 23 : 45);
+        if (bTestSlide)
+        {
+            Tap(EKeys::C);
+        }
+        TestTrue(TEXT("The grounding check starts in the requested movement state"),
+            bTestSlide ? Penguin->bSliding : Penguin->bSprinting && !Penguin->bSliding);
+        auto& SprintMesh = *Penguin->PenguinMesh;
+        double LowestTorso = 1000.0;
+        double LowestHead = 1000.0;
+        double WorstGrade = 0.0;
+        const int32 SampleFrames = bTestSlide ? 83 : 145;
+        for (int32 Index = 0; Index < SampleFrames; ++Index)
+        {
+            if (!bTestSlide && Index == 120)
+            {
+                Key(EKeys::LeftShift, IE_Released);
+            }
+            Advance(1);
+            SprintMesh.TickAnimation(Frame, false);
+            SprintMesh.RefreshBoneTransforms();
+            if (Index % 8 != 0 || Penguin->bSlideAirborne || Penguin->IsSwimming())
+            {
+                continue;
+            }
+            const FVector Torso = SprintMesh.GetSocketLocation(TEXT("Body_Jiggle"));
+            LowestTorso = FMath::Min(LowestTorso, Torso.Z - Terrain.HeightAt(Torso.X, Torso.Y));
+            const FVector Head = SprintMesh.GetSocketLocation(TEXT("Head_Slide"));
+            LowestHead = FMath::Min(LowestHead, Head.Z - Terrain.HeightAt(Head.X, Head.Y));
+            WorstGrade = FMath::Max(WorstGrade, FMath::Abs(Penguin->Grade()));
+        }
+        AddInfo(FString::Printf(TEXT("%s on %.1f degree slope, lowest torso %.1f cm, lowest head %.1f cm"),
+            bTestSlide ? TEXT("Sprint slide") : TEXT("Sprint"), WorstGrade, LowestTorso, LowestHead));
+        TestTrue(bTestSlide ? TEXT("A sprint slide keeps the body above the snow")
+            : TEXT("Sprinting and returning to a walk keep the torso and head clear of the snow"),
+            WorstGrade > 15.0 && LowestTorso > 25.0 && LowestHead > (bTestSlide ? 40.0 : 65.0));
+        Key(EKeys::LeftShift, IE_Released);
+        Key(EKeys::W, IE_Released);
+    }
+    auto PutInChannel = [&](double Y = 0.0)
+    {
+        Tap(EKeys::R);
+        Penguin->SetActorLocation(FVector(8400, Y, -18));
         Advance(1);
     };
     PutInChannel();
@@ -514,17 +665,18 @@ bool FIcebergNetworkTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Releasing W sinks below the surface without stopping immediately"),
         Penguin->IsSwimming() && Penguin->GetSwimDepth() > SurfaceDepth + 80
         && Penguin->GetActorLocation().X > BeforeSinking.X + 50);
-    PutInChannel();
-    Arm->SetRelativeRotation(FRotator(-70, 0, 0));
+    PutInChannel(4200.0);
+    Arm->SetRelativeRotation(FRotator(-60, 90, 0));
     Key(EKeys::W, IE_Pressed);
     Advance(145);
     Key(EKeys::W, IE_Released);
     const FVector Bottom = Penguin->GetActorLocation();
     const auto* Camera = Penguin->FindComponentByClass<UCameraComponent>();
-    AddInfo(FString::Printf(TEXT("Dive reached %s, camera treatment %.2f"), *Bottom.ToCompactString(),
+    AddInfo(FString::Printf(TEXT("Dive reached %s, camera elevation %.0f cm and treatment %.2f"),
+        *Bottom.ToCompactString(), Camera ? Camera->GetComponentLocation().Z : 0.0,
         Camera ? Camera->PostProcessBlendWeight : -1.0f));
     TestTrue(TEXT("Pointing down and pushing forward dives along the body angle"), Penguin->IsSwimming()
-        && Bottom.Z < -500 && Bottom.X > 8700
+        && Bottom.Z < -500 && Bottom.Y > 4800.0
         && Penguin->PenguinMesh->GetAttachParent()->GetForwardVector().Z < -.70);
     TestTrue(TEXT("Diving cannot push the penguin through the seabed"),
         Bottom.Z >= Terrain.HeightAt(Bottom.X, Bottom.Y) + 36);
@@ -549,14 +701,14 @@ bool FIcebergNetworkTest::RunTest(const FString& Parameters)
     Key(EKeys::W, IE_Released);
 
     PutInChannel();
-    Arm->SetRelativeRotation(FRotator(-48, 0, 0));
+    Arm->SetRelativeRotation(FRotator(-48, 90, 0));
     Key(EKeys::W, IE_Pressed);
     Advance(65);
-    Arm->SetRelativeRotation(FRotator(57, 0, 0));
+    Arm->SetRelativeRotation(FRotator(57, 90, 0));
     double BreachHeight = 0.0;
     bool bLaunched = false;
     bool bReturnedToWater = false;
-    for (int32 Index = 0; Index < 205; ++Index)
+    for (int32 Index = 0; Index < 360; ++Index)
     {
         Advance(1);
         if (!Penguin->IsSwimming())
@@ -605,35 +757,255 @@ bool FIcebergNetworkTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("Forward thrust still animates a flipper stroke"), StrokeArc > FMath::DegreesToRadians(38.0));
 
     Tap(EKeys::R);
-    double ShoreX = 0.0;
-    for (; ShoreX < 14000 && !Terrain.WaterSurfaceAt(ShoreX, 0); ShoreX += 50.0)
-    {
-    }
-    const double RunStart = ShoreX - 950.0;
-    Penguin->SetActorLocation(FVector(RunStart, 0, Terrain.HeightAt(RunStart, 0) + 1.0));
-    Key(EKeys::LeftShift, IE_Pressed);
-    Key(EKeys::W, IE_Pressed);
-    Advance(39);
-    Tap(EKeys::Q);
     Tap(EKeys::C);
-    for (int32 Index = 0; Index < 180 && !Penguin->IsSwimming(); ++Index)
+    Key(EKeys::RightMouseButton, IE_Pressed);
+    TestTrue(TEXT("ADS immediately interrupts a grounded slide"), Penguin->IsAiming() && !Penguin->bSliding);
+    Key(EKeys::RightMouseButton, IE_Released);
+    Tap(EKeys::C);
+    Tap(EKeys::SpaceBar);
+    TestTrue(TEXT("An immediate boost stays grounded"), Penguin->Speed() > 0.0f && !Penguin->bSlideAirborne);
+    Advance(10);
+    Tap(EKeys::SpaceBar);
+    TestTrue(TEXT("The first 0.2 seconds after the boost keep it grounded"),
+        Penguin->SlideGroundLockRemaining > 0.0f && !Penguin->bSlideAirborne
+        && !Penguin->TrySlideLaunch(Frame, Penguin->GetActorLocation(), FVector::ForwardVector, 0.6));
+    Advance(3);
+    Tap(EKeys::SpaceBar);
+    TestTrue(TEXT("Space jumps without dropping the slide pose"),
+        Penguin->bSliding && Penguin->bSlideAirborne && Penguin->SlideVerticalSpeed > 0.0);
+    const double JumpLift = Penguin->SlideVerticalSpeed;
+    Advance(1);
+    TestTrue(TEXT("Jumping uses the 20 percent higher gravity of 1176 cm/s squared"),
+        FMath::IsNearlyEqual(JumpLift - Penguin->SlideVerticalSpeed, 1176.0 * Frame, 0.01));
+    const float JumpSpeed = Penguin->Speed();
+    Key(EKeys::LeftMouseButton, IE_Pressed);
+    TestTrue(TEXT("Fire cancels an airborne slide while preserving the jump"),
+        Penguin->CanFire() && !Penguin->bSliding && Penguin->bSlideAirborne
+        && Penguin->Speed() == JumpSpeed && Penguin->ShotRequestTime > 0.0f);
+    Key(EKeys::LeftMouseButton, IE_Released);
+    Tap(EKeys::R);
+
+    const FVector AirStart = Penguin->GetActorLocation();
+    Tap(EKeys::SpaceBar);
+    Key(EKeys::D, IE_Pressed);
+    Advance(14);
+    Key(EKeys::D, IE_Released);
+    const FVector SteeredPosition = Penguin->GetActorLocation();
+    const float SteeredSpeed = Penguin->Speed();
+    Advance(5);
+    TestTrue(TEXT("Air control builds sideways momentum and coasts when released"),
+        Penguin->bSlideAirborne && SteeredPosition.Y > AirStart.Y + 20.0
+        && Penguin->GetActorLocation().Y > SteeredPosition.Y + 10.0
+        && FMath::IsNearlyEqual(Penguin->Speed(), SteeredSpeed, 0.1f));
+    Tap(EKeys::R);
+
+    Key(EKeys::RightMouseButton, IE_Pressed);
+    Key(EKeys::D, IE_Pressed);
+    Arm->SetRelativeRotation(FRotator(-9, 30, 0));
+    Advance(15);
+    TestTrue(TEXT("ADS faces the camera aim and strafes without leaning into the strafe"),
+        FVector::DotProduct(Penguin->Facing, Penguin->GetLookYaw().Vector()) > 0.99
+        && FMath::Abs(FVector::DotProduct(Penguin->Heading, Penguin->Facing)) < 0.02
+        && FMath::IsNearlyZero(Penguin->TurnLean));
+    Key(EKeys::D, IE_Released);
+    Key(EKeys::RightMouseButton, IE_Released);
+
+    for (const FKey& Button : {EKeys::A, EKeys::D})
+    {
+        Penguin->ResetAt(-700.0, -1200.0);
+        Tap(EKeys::C);
+        Advance(22);
+        Penguin->GroundSpeed = 0.0f;
+        Key(Button, IE_Pressed);
+        double Turn = 0.0;
+        constexpr int32 TurnFrames = 48;
+        for (int32 Index = 0; Index < TurnFrames; ++Index)
+        {
+            const double Before = Penguin->Heading.Rotation().Yaw;
+            Advance(1);
+            Turn += FMath::FindDeltaAngleDegrees(Before, Penguin->Heading.Rotation().Yaw);
+        }
+        Key(Button, IE_Released);
+        TestTrue(Button == EKeys::A ? TEXT("Holding A keeps steering past 90 degrees left")
+            : TEXT("Holding D keeps steering past 90 degrees right"),
+            FMath::IsNearlyEqual(Turn, (Button == EKeys::A ? -130.0 : 130.0) * TurnFrames * Frame, 0.1));
+        TestTrue(TEXT("A held turn banks 20 degrees in its direction around the ground origin"),
+            FMath::IsNearlyEqual(Penguin->TurnLean, Button == EKeys::A ? -20.0f : 20.0f, 0.1f)
+            && Penguin->BodyPivot->GetComponentLocation().Equals(Penguin->GetActorLocation(), 0.1));
+    }
+
+    for (const double Yaw : {0.0, -90.0, 180.0})
+    {
+        Penguin->ResetAt(-700.0, -1200.0);
+        Tap(EKeys::C);
+        Advance(22);
+        Arm->SetRelativeRotation(FRotator(-9.0, Yaw, 0.0));
+        const float CoastSpeed = Penguin->Speed();
+        Key(EKeys::W, IE_Pressed);
+        Key(EKeys::S, IE_Pressed);
+        Advance(30);
+        Key(EKeys::S, IE_Released);
+        Key(EKeys::W, IE_Released);
+        TestTrue(TEXT("S brakes the slide regardless of camera angle"),
+            Penguin->bSliding && Penguin->Speed() < CoastSpeed - 750.0f);
+    }
+
+    double RunY = -1400.0;
+    for (double Y = -1300.0; Y <= 1200.0; Y += 100.0)
+    {
+        if (Terrain.NormalAt(-3100.0, Y).Z < Terrain.NormalAt(-3100.0, RunY).Z)
+        {
+            RunY = Y;
+        }
+    }
+    Penguin->ResetAt(-3100.0, RunY);
+    Penguin->Facing = Terrain.NormalAt(-3100.0, RunY).GetSafeNormal2D();
+    Tap(EKeys::C);
+    Advance(22);
+    const float DownhillEntrySpeed = Penguin->Speed();
+    Advance(12);
+    TestTrue(TEXT("A slide gains speed from a downhill grade without throttle"),
+        Penguin->bSliding && Penguin->Speed() > DownhillEntrySpeed + 30.0f);
+
+    auto* Ring = FindObjectFast<UProceduralMeshComponent>(TerrainIt.operator->(), TEXT("PracticeRing"));
+    const bool bHasRing = TestTrue(TEXT("The channel has a visible nonblocking practice ring"),
+        Ring && Ring->GetProcMeshSection(0) && Ring->GetCollisionEnabled() == ECollisionEnabled::NoCollision);
+    for (TActorIterator<AIcebergIsland> It(World); It; ++It)
+    {
+        auto* Ramp = FindObjectFast<UProceduralMeshComponent>(*It, TEXT("PracticeJumpRamp"));
+        const auto* Section = Ramp ? Ramp->GetProcMeshSection(0) : nullptr;
+        if (!TestNotNull(TEXT("The island has a practice ramp"), Section))
+        {
+            continue;
+        }
+        const FVector Lip = Ramp->GetComponentTransform().TransformPosition(
+            (Section->ProcVertexBuffer[2].Position + Section->ProcVertexBuffer[3].Position) * .5);
+        const double Direction = It->bBaseIsland ? 1.0 : -1.0;
+        const FVector RampTop = Lip - FVector(Direction * 280.0, 0, 0);
+        FHitResult Hit;
+        TestTrue(TEXT("The visible ramp matches the walkable surface"),
+            World->LineTraceSingleByChannel(Hit, RampTop + FVector::UpVector * 400.0,
+                RampTop - FVector::UpVector * 400.0, ECC_Visibility) && Hit.GetComponent() == Ramp
+            && FMath::IsNearlyEqual(Hit.ImpactPoint.Z, Terrain.HeightAt(RampTop.X, RampTop.Y), 2.0));
+
+        const FVector Origin = Terrain.GetActorLocation();
+        Penguin->ResetAt(Lip.X - Origin.X - Direction * 4200.0, Lip.Y - Origin.Y);
+        Arm->SetRelativeRotation(FRotator(-9.0, It->bBaseIsland ? 0.0 : 180.0, 0.0));
+        Key(EKeys::W, IE_Pressed);
+        Key(EKeys::LeftShift, IE_Pressed);
+        Advance(45);
+        Tap(EKeys::C);
+        for (int32 Index = 0; Index < 400 && (Lip.X - Penguin->GetActorLocation().X) * Direction > 175.0
+            && !Penguin->bSlideAirborne && !Penguin->IsSwimming(); ++Index)
+        {
+            Advance(1);
+        }
+        Tap(EKeys::SpaceBar);
+        const FVector Launch = Penguin->GetActorLocation();
+        const float LaunchSpeed = Penguin->Speed();
+        const double LaunchLift = Penguin->SlideVerticalSpeed;
+        Key(EKeys::W, IE_Released);
+        Key(EKeys::LeftShift, IE_Released);
+        double RingClearance = TNumericLimits<double>::Max();
+        for (int32 Index = 0; Index < 330 && Penguin->bSlideAirborne; ++Index)
+        {
+            const FVector Before = Penguin->GetActorLocation();
+            Advance(1);
+            if (bHasRing)
+            {
+                const FTransform RingTransform = Ring->GetComponentTransform();
+                const FVector From = RingTransform.InverseTransformPosition(Before);
+                const FVector To = RingTransform.InverseTransformPosition(Penguin->GetActorLocation());
+                if (From.X * To.X <= 0.0 && !FMath::IsNearlyEqual(From.X, To.X))
+                {
+                    const FVector Through = FMath::Lerp(From, To, From.X / (From.X - To.X));
+                    RingClearance = FVector2D(Through.Y, Through.Z).Size();
+                }
+            }
+        }
+        const FVector Landing = Penguin->GetActorLocation();
+        const bool bLandedAcross = It->bBaseIsland ? Landing.X > 8400 : Landing.X < 8400;
+        TestTrue(It->bBaseIsland ? TEXT("A slide jump flies from Base to Expedition Island")
+            : TEXT("A slide jump flies from Expedition to Base Island"),
+            LaunchSpeed > 1800.0f && bLandedAcross && !Penguin->IsSwimming()
+            && Penguin->bSliding && !Penguin->bSlideAirborne
+            && Penguin->WaterSkips == 0 && !Terrain.WaterSurfaceAt(Landing.X, Landing.Y));
+        TestTrue(TEXT("The ramp flight passes through the ring opening"), RingClearance < 340.0);
+        AddInfo(FString::Printf(TEXT("Ramp %s lip X %.0f, flew from X %.0f to %.0f, launch velocity %.0f forward / %.0f up, ring offset %.0f cm"),
+            *It->IslandName, Lip.X, Launch.X, Landing.X, LaunchSpeed, LaunchLift, RingClearance));
+    }
+
+    auto ChannelApproach = [&](float ForwardSpeed, double FallSpeed)
+    {
+        const FVector2D Target(8400, -2000);
+        const double Surface = Terrain.WaterSurfaceAt(Target.X, Target.Y).GetValue();
+        Tap(EKeys::R);
+        Penguin->SetActorLocation(FVector(Target, Surface + 10.0));
+        Penguin->GroundSpeed = ForwardSpeed;
+        Penguin->bSliding = Penguin->bSlideAirborne = true;
+        Penguin->SlideVerticalSpeed = -FallSpeed;
+    };
+    ChannelApproach(3000.0f, 100.0);
+    Penguin->bSliding = false;
+    Penguin->Heading = FVector::RightVector;
+    Penguin->AddActorWorldOffset(FVector(0, 0, 250));
+    Tap(EKeys::C);
+    TestTrue(TEXT("C starts a midair dive without an instant pitch or velocity change"),
+        Penguin->bDiving && Penguin->bSlideAirborne && Penguin->SlideVerticalSpeed == -100.0
+        && FMath::IsNearlyZero(Penguin->DivePitch) && FMath::IsNearlyZero(Penguin->SlidePoseTime));
+    Advance(10);
+    TestTrue(TEXT("The dive pitches down at a constant rate"),
+        FMath::IsNearlyEqual(Penguin->DivePitch, -40.0f, 0.1f));
+    Advance(14);
+    TestTrue(TEXT("The dive stops rotating when the penguin faces straight down"),
+        Penguin->bDiving && FMath::IsNearlyEqual(Penguin->DivePitch, -90.0f, 0.1f)
+        && Penguin->BodyPivot->GetForwardVector().Equals(-FVector::UpVector, 0.001));
+    for (int32 Index = 0; Index < 30 && !Penguin->IsSwimming(); ++Index)
+    {
+        PoseTick();
+    }
+    const FTransform EntryHead = Mesh->GetSocketTransform(TEXT("Head_Slide"), RTS_Component);
+    const FQuat EntryBody = Penguin->BodyPivot->GetComponentQuat();
+    for (int32 Index = 0; Index < 21; ++Index)
+    {
+        PoseTick();
+    }
+    TestTrue(TEXT("A dive enters without skipping and holds its entry pose for the first 0.4 seconds"),
+        Penguin->IsHoldingWaterEntryPose() && Penguin->WaterSkips == 0
+        && Mesh->GetSocketTransform(TEXT("Head_Slide"), RTS_Component).Equals(EntryHead, 0.01)
+        && Penguin->BodyPivot->GetComponentQuat().Equals(EntryBody, 0.01));
+    for (int32 Index = 0; Index < 18; ++Index)
+    {
+        PoseTick();
+    }
+    TestTrue(TEXT("The held entry pose blends into swimming"),
+        Penguin->IsSwimming() && !Penguin->IsHoldingWaterEntryPose()
+        && !Mesh->GetSocketTransform(TEXT("Head_Slide"), RTS_Component).Equals(EntryHead, 0.1));
+
+    for (const int32 ExpectedSkips : {1, 2})
+    {
+        ChannelApproach(ExpectedSkips == 1 ? 1000.0f : 1600.0f, 100.0);
+        for (int32 Index = 0; Index < 140 && !Penguin->IsSwimming(); ++Index)
+        {
+            Advance(1);
+        }
+        TestTrue(ExpectedSkips == 1 ? TEXT("A shallow approach near the speed threshold skips once")
+            : TEXT("A faster shallow approach skips twice before settling into swimming"),
+            Penguin->WaterSkips == ExpectedSkips && Penguin->IsSwimming());
+    }
+
+    ChannelApproach(1600.0f, 650.0);
+    for (int32 Index = 0; Index < 15 && !Penguin->IsSwimming(); ++Index)
     {
         Advance(1);
     }
     const double EntrySpeed = Penguin->Speed();
-    Key(EKeys::W, IE_Released);
-    Key(EKeys::LeftShift, IE_Released);
-    double Plunge = Penguin->GetSwimDepth();
-    for (int32 Index = 0; Index < 44; ++Index)
-    {
-        Advance(1);
-        Plunge = FMath::Max(Plunge, Penguin->GetSwimDepth());
-    }
-    AddInfo(FString::Printf(TEXT("Fast entry: %.1f m/s on contact, %.1f m/s after drag, %.2f m peak depth"),
-        EntrySpeed / 100.0, Penguin->Speed() / 100.0, Plunge / 100.0));
-    TestTrue(TEXT("A sprint slide pierces the surface with retained momentum and slows under drag"),
-        Penguin->IsSwimming() && EntrySpeed > 770.0 && Penguin->Speed() < EntrySpeed * .66 && Plunge > 67.0);
-    Tap(EKeys::Q);
+    TestTrue(TEXT("A steep entry keeps its momentum at contact and does not skip"),
+        Penguin->IsSwimming() && Penguin->WaterSkips == 0 && Penguin->SwimVelocity.X > 1500.0);
+    Advance(6);
+    TestTrue(TEXT("The first tenth of a second in water preserves most entry speed"), Penguin->Speed() > EntrySpeed * .80);
+    Advance(42);
+    TestTrue(TEXT("Water drag then slows the swimmer"), Penguin->Speed() < EntrySpeed * .66);
 
     const bool bDivePreview = FParse::Param(FCommandLine::Get(), TEXT("ColdzoneSwimPreview"));
     if (bDivePreview || FParse::Param(FCommandLine::Get(), TEXT("ColdzoneSurfacePreview")))

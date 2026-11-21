@@ -1,5 +1,7 @@
 #include "ColdLootBullet.h"
 #include "ColdLootBulletImpact.h"
+#include "ColdLootTuning.h"
+#include "PenguinPawn.h"
 
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -56,11 +58,18 @@ void AColdLootBullet::Launch(const FVector& Direction, float Speed, float Damage
     HitDamage = Damage;
     ShotDirection = Direction;
     Movement->Velocity = Direction * Speed;
+    Movement->Bounciness = 0.4f * FColdLootTuning::ForWorld(GetWorld()).Get(EColdLootTuning::Ricochet);
+    Movement->bShouldBounce = Movement->Bounciness > 0.0f;
     Tracer->SetMaterial(0, TracerMaterial);
 }
 
 void AColdLootBullet::HandleRicochet(const FHitResult& Hit, const FVector& IncomingVelocity)
 {
+    if (Cast<APenguinPawn>(Hit.GetActor()))
+    {
+        HandleImpact(Hit);
+        return;
+    }
     ResolveHit(Hit, IncomingVelocity.GetSafeNormal());
     Movement->bShouldBounce = false;
     ShotDirection = Movement->Velocity.GetSafeNormal();
@@ -80,6 +89,10 @@ void AColdLootBullet::Tick(float DeltaSeconds)
 
 void AColdLootBullet::HandleImpact(const FHitResult& Hit)
 {
+    if (IsActorBeingDestroyed())
+    {
+        return;
+    }
     ResolveHit(Hit, ShotDirection);
     Destroy();
 }
@@ -87,9 +100,11 @@ void AColdLootBullet::HandleImpact(const FHitResult& Hit)
 void AColdLootBullet::ResolveHit(const FHitResult& Hit, const FVector& Direction)
 {
     AColdLootBulletImpact::Play(*GetWorld(), Hit, Tracer->GetMaterial(0));
-    if (AActor* Target = Hit.GetActor(); IsValid(Target) && Target != GetOwner())
+    if (AActor* Target = Hit.GetActor(); GetNetMode() != NM_Client && IsValid(Target) && Target != GetOwner())
     {
-        UGameplayStatics::ApplyPointDamage(Target, HitDamage, Direction, Hit,
+        const float DamageScale = Cast<APenguinPawn>(Target) ? 1.0f
+            : FColdLootTuning::ForWorld(GetWorld()).Get(EColdLootTuning::TargetDamage);
+        UGameplayStatics::ApplyPointDamage(Target, HitDamage * DamageScale, Direction, Hit,
             GetInstigatorController(), this, nullptr);
     }
 }

@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 import re
+import sys
 
 import bpy
 from mathutils import Matrix
@@ -12,6 +13,9 @@ OUTPUT = ROOT / "FBX/Pinnacle"
 MODELS = {
     "Whiteout": "Cold Loot - Whiteout.blend",
     "Forgekeeper": "Cold Loot - Foundry Forgekeeper v2.blend",
+    "Stormstitch": "Cold Loot - Weave Stormstitch.blend",
+    "Sunmarshal": "Cold Loot - Dawnward Sunmarshal.blend",
+    "Nightglass": "Cold Loot - PenGru Nightglass - Wrapped Carrier.blend",
 }
 
 
@@ -19,7 +23,8 @@ def export_model(name, filename):
     bpy.ops.wm.open_mainfile(filepath=str(ROOT / "Blender" / filename))
     scene = bpy.context.scene
     scene.frame_set(1)
-    source_rig = bpy.data.objects["Penguin Rig"]
+    source_rig = next(obj for obj in scene.objects
+                      if obj.type == "ARMATURE" and obj.name.startswith("Penguin Rig"))
     depsgraph = bpy.context.evaluated_depsgraph_get()
     posed_rig = source_rig.evaluated_get(depsgraph)
     # Move the mounted equipment from the render pose into the skeleton's bind pose.
@@ -29,12 +34,23 @@ def export_model(name, filename):
     }
     geometry = []
     for obj in scene.objects:
-        anchor = obj.parent
-        if not anchor or obj.type not in {"MESH", "CURVE"}:
+        if obj.type not in {"MESH", "CURVE"} or obj.hide_render:
             continue
-        if anchor == source_rig and obj.type == "MESH":
-            geometry.append((obj, obj.data.copy(), source_rig.matrix_world.inverted() @ obj.matrix_world, None))
-        elif anchor.parent == source_rig and anchor.parent_type == "BONE" and not obj.hide_render:
+        if obj.parent == source_rig and obj.type == "MESH":
+            if source_rig.get("Nightglass flipper fit degrees") and obj.name.startswith("Flipper."):
+                # Retain the outfit-specific flipper splay in the base geometry
+                # while exporting against the same unmodified runtime skeleton.
+                evaluated = obj.evaluated_get(depsgraph)
+                data = bpy.data.meshes.new_from_object(evaluated)
+                geometry.append((obj, data, rest_from_pose["Root"] @ evaluated.matrix_world, None))
+            else:
+                geometry.append((obj, obj.data.copy(), source_rig.matrix_world.inverted() @ obj.matrix_world, None))
+            continue
+
+        anchor = obj.parent
+        while anchor and anchor.parent != source_rig:
+            anchor = anchor.parent
+        if anchor and anchor.parent_type == "BONE":
             evaluated = obj.evaluated_get(depsgraph)
             mesh = bpy.data.meshes.new_from_object(evaluated)
             if not mesh.vertices:
@@ -100,5 +116,9 @@ def export_model(name, filename):
 
 if __name__ == "__main__":
     OUTPUT.mkdir(exist_ok=True)
-    palettes = {name: export_model(name, filename) for name, filename in MODELS.items()}
-    (OUTPUT / "Materials.json").write_text(json.dumps(palettes, indent=2) + "\n", encoding="utf-8")
+    selected = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else list(MODELS)
+    palette_file = OUTPUT / "Materials.json"
+    palettes = json.loads(palette_file.read_text(encoding="utf-8")) if palette_file.exists() else {}
+    for name in selected:
+        palettes[name] = export_model(name, MODELS[name])
+    palette_file.write_text(json.dumps(palettes, indent=2) + "\n", encoding="utf-8")

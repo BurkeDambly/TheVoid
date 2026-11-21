@@ -1,0 +1,37 @@
+COLD LOOT MULTIPLAYER PLAYTEST
+
+Both players extract and use the same Windows build.
+
+HOST
+Open Host Cold Loot.cmd and stay in the game. Give your tester an IPv4
+address they can reach. The game listens on UDP port 7777.
+
+PLAYTESTER
+Open Join Cold Loot.cmd and enter the host's IPv4 address. You should
+spawn beside the host on Base Island. If the host closes the game,
+start a new session and join again.
+
+Each penguin starts at 100 HP and loses 20 HP per bullet. The fifth
+hit knocks them out. Press R to return to Base Island at full health.
+
+TUNING
+Press F3 during play to search and edit movement, sliding, jumping,
+swimming, gunplay, and camera settings. A value of 1.00x uses the
+current game mode's default. Changes apply live. In multiplayer the
+host edits the settings, and guests can see the active values.
+Reset session restores defaults. Save preset keeps your current
+settings for future solo and hosted games on this PC.
+To test solo with this build, start ColdLoot.exe directly.
+
+CHOOSING AN ADDRESS
+On the same network, use the host's local IPv4 address from ipconfig.
+For a remote game using port forwarding, the host forwards UDP 7777
+to their PC and allows it in Windows Firewall. Guests enter the host
+router's public IPv4 address. The launcher fills in the port.
+For a remote personal playtest, both players can use Tailscale and the
+host can share their machine with the tester. Enter the shared
+machine's Tailscale IPv4 address. See https://tailscale.com/docs/features/sharing
+
+If the window returns to solo play after a connection failure, start
+the Join launcher again after checking the address and the host's
+firewall access for the game. For a same-PC test, enter 127.0.0.1.

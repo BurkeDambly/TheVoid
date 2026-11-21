@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/NetSerialization.h"
 #include "GameFramework/Pawn.h"
 #include "PenguinPawn.generated.h"
 
@@ -8,6 +9,7 @@ class ASlideParkTerrain;
 class AColdzoneMapTerrain;
 class UAnimSequence;
 class UCameraComponent;
+class UCapsuleComponent;
 class UColdLootWeaponDefinition;
 class UMaterialInterface;
 class USkeletalMeshComponent;
@@ -15,74 +17,97 @@ class USoundBase;
 class USpringArmComponent;
 class UStaticMeshComponent;
 
+UENUM()
+enum class EPenguinAction : uint8
+{
+    Slide, Jump, AimPressed, AimReleased, FirePressed, FireReleased, ReturnToBase
+};
+
+USTRUCT()
+struct FPenguinNetworkPose
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    FVector_NetQuantize10 Position = FVector::ZeroVector;
+    UPROPERTY()
+    FRotator BodyRotation = FRotator::ZeroRotator;
+    UPROPERTY()
+    FRotator View = FRotator::ZeroRotator;
+    UPROPERTY()
+    float Speed = 0.0f;
+    UPROPERTY()
+    float SprintBlend = 0.0f;
+    UPROPERTY()
+    float SlideTime = 0.0f;
+    UPROPERTY()
+    float SwimThrust = 0.0f;
+    UPROPERTY()
+    float SwimDepth = 0.0f;
+    UPROPERTY()
+    float FireBlend = 0.0f;
+    UPROPERTY()
+    uint8 Flags = 0;
+    UPROPERTY()
+    bool bHoldingWaterEntryPose = false;
+};
+
+USTRUCT()
+struct FPenguinCombatState
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    uint8 Health = 100;
+    UPROPERTY()
+    FVector_NetQuantize10 KnockoutOrigin = FVector::ZeroVector;
+    UPROPERTY()
+    FRotator KnockoutRotation = FRotator::ZeroRotator;
+    UPROPERTY()
+    FVector_NetQuantize10 LaunchVelocity = FVector::ZeroVector;
+};
+
 UCLASS()
 class APenguinPawn : public APawn
 {
     GENERATED_BODY()
 
-    enum class EForm : uint8 { Normal, Penguin, EditorPenguin };
-
 public:
     APenguinPawn();
+    virtual void PreInitializeComponents() override;
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaSeconds) override;
     virtual void SetupPlayerInputComponent(UInputComponent* Input) override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+    virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent,
+        AController* EventInstigator, AActor* DamageCauser) override;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Weapon")
     TObjectPtr<UColdLootWeaponDefinition> WeaponDefinition;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Locomotion", meta=(ClampMin="10", Units="cm"))
-    float WalkDistancePerCycle = 91.0f;
+    float WalkDistancePerCycle = 182.0f;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Locomotion", meta=(ClampMin="10", Units="cm"))
     float SprintDistancePerCycle = 450.0f;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="0", Units="cm/s"))
-    float StationarySlidePush = 280.0f;
+    float StationarySlidePush = 1850.0f;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="1", Units="cm/s^2"))
-    float FlatDeceleration = 320.0f;
+    float FlatDeceleration = 92.0f;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="1", Units="cm/s^2"))
-    float FastSlideDeceleration = 85.0f;
+    float FastSlideDeceleration = 22.0f;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="0"))
     float SlopeGravity = 1400.0f;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="100"))
-    float SlideSpeedLimit = 1320.0f;
-
-    UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form", meta=(ClampMin="0", Units="cm/s^2"))
-    float FormDownhillGravity = 2650.0f;
-
-    UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form", meta=(ClampMin="100", Units="cm/s"))
-    float FormSlideSpeedLimit = 1650.0f;
-
-    UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form", meta=(ClampMin="1", ClampMax="5"))
-    float FormSlideSpeedMultiplier = 3.0f;
-
-    UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form", meta=(ClampMin="0.05", ClampMax="1"))
-    float FormSlideFrictionMultiplier = 0.50f;
-
-    UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form", meta=(ClampMin="0", ClampMax="1"))
-    float FormUphillBrakingMultiplier = 0.34f;
-
-    UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form", meta=(ClampMin="0.1", ClampMax="1"))
-    float FormAirGravityMultiplier = 0.55f;
-
-    UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form", meta=(ClampMin="1"))
-    float FormSlideSteeringMultiplier = 3.0f;
-
-    UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form")
-    TSoftObjectPtr<UMaterialInterface> PenguinFormMaterial{FSoftObjectPath(
-        TEXT("/Game/Penguin/Mesh/M_PenguinForm.M_PenguinForm"))};
-
-    UPROPERTY(EditAnywhere, Category="Penguin|Penguin Form")
-    TSoftObjectPtr<UMaterialInterface> EditorPenguinFormMaterial{FSoftObjectPath(
-        TEXT("/Game/Penguin/Mesh/M_EditorPenguinForm.M_EditorPenguinForm"))};
+    float SlideSpeedLimit = 4200.0f;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Slide", meta=(ClampMin="0"))
-    float SlideSteering = 52.0f;
+    float SlideSteering = 130.0f;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Penguin")
     TObjectPtr<USkeletalMeshComponent> PenguinMesh;
@@ -92,6 +117,12 @@ public:
 
     UPROPERTY(EditAnywhere, Category="Penguin|Animation")
     TObjectPtr<UAnimSequence> SprintAnimation;
+
+    UPROPERTY(EditAnywhere, Category="Penguin|Animation")
+    TObjectPtr<UAnimSequence> WalkWaddleAnimation;
+
+    UPROPERTY(EditAnywhere, Category="Penguin|Animation")
+    TObjectPtr<UAnimSequence> SprintWaddleAnimation;
 
     UPROPERTY(EditAnywhere, Category="Penguin|Animation")
     TObjectPtr<UAnimSequence> SlideAnimation;
@@ -112,25 +143,30 @@ public:
     const TCHAR* MotionLabel() const;
     bool HasWeapon() const;
     bool CanFire() const;
-    bool IsPenguinFormActive() const { return ActiveForm != EForm::Normal; }
-    bool IsEditorPenguinFormActive() const { return ActiveForm == EForm::EditorPenguin; }
     bool IsAiming() const;
     const AColdzoneMapTerrain* IslandTerrain() const;
     bool IsSwimming() const { return bSwimming; }
     double GetSwimDepth() const { return SwimDepth; }
     float ReticleGap() const;
+    static constexpr int32 MaxHealth = 100;
+    int32 GetHealth() const { return CombatState.Health; }
+    bool IsKnockedOut() const { return GetHealth() == 0; }
 
 private:
     friend class FPenguinAnimProxy;
     friend class FPenguinMovementTest;
     friend class FPenguinWeaponTest;
     friend class FIcebergWeaponTest;
+    friend class FIcebergNetworkTest;
+    friend class FPenguinWaddleVisibilityTest;
+    friend class FColdLootMultiplayerPlaytest;
+    friend class AColdLootHUD;
 
     void EquipWeapon();
     void StartAim();
-    void StopAim() { bAimHeld = false; }
+    void StopAim();
     void StartFire();
-    void StopFire() { bFireHeld = false; }
+    void StopFire();
     bool WantsToFire() const { return bFireHeld || ShotRequestTime > 0.0f; }
     void UpdateWeapon(float DeltaSeconds);
     void FinishWeaponPose();
@@ -139,6 +175,37 @@ private:
     void AddShotRecoil();
     void UpdateCameraRecoil();
     void FireBullet(const FTransform& Muzzle, const FVector& GripLocation);
+    void SpawnBullet(const FVector& Origin, const FVector& Direction, float Speed);
+    void UpdateAimCamera(float DeltaSeconds);
+    void UpdateWeaponVisibility();
+    void CopyPlaytestAppearance();
+    void TickNetworkClient(float DeltaSeconds);
+    void PublishNetworkPose();
+    void SetRagdollActive(bool bActive);
+
+    UFUNCTION()
+    void OnRep_CombatState();
+
+    UFUNCTION(Server, Unreliable)
+    void ServerUpdateInput(float Forward, float Right, FRotator View, bool bSprint, bool bBrake);
+    UFUNCTION(Server, Reliable)
+    void ServerAction(EPenguinAction Action);
+    UFUNCTION(NetMulticast, Unreliable)
+    void MulticastShot(FVector_NetQuantize Origin, FVector_NetQuantizeNormal Direction, float Speed, bool bSpawnTracer);
+
+    UPROPERTY(Replicated)
+    FPenguinNetworkPose NetworkPose;
+    UPROPERTY(ReplicatedUsing=OnRep_CombatState)
+    FPenguinCombatState CombatState;
+
+    UPROPERTY(VisibleAnywhere)
+    TObjectPtr<UCapsuleComponent> BulletHitbox;
+    FVector CameraMountLocation = FVector::ZeroVector;
+    FTransform StandingMeshTransform;
+    bool bRagdollActive = false;
+    float InputSendTime = 0.0f;
+    double LastRemoteInputTime = 0.0;
+    bool bReceivedNetworkPose = false;
     FVector GetWeaponAimDirection() const;
     bool IsSprintFiring() const { return bSprinting && WantsToFire() && CanFire(); }
     void RollSprintSpread();
@@ -146,6 +213,7 @@ private:
     void Step(float Seconds, const FVector& Wish);
     void StepSwimming(float Seconds);
     void EnterWater(FVector Position, double SurfaceZ, const FVector& EntryVelocity);
+    bool IsHoldingWaterEntryPose() const;
     void UpdateUnderwaterView(float DeltaSeconds);
     float GetGaitCycle(bool bSprint) const;
     float GetGaitSpeed(bool bSprint) const;
@@ -154,19 +222,20 @@ private:
     void StepSlideFlight(float Seconds);
     bool TrySlideLaunch(float Seconds, const FVector& Start, const FVector& Travel, double Rise);
     void ToggleSlide();
-    void TogglePenguinForm();
+    void StartSlideBrake() { bSlideBrakeHeld = true; }
+    void StopSlideBrake() { bSlideBrakeHeld = false; }
+    float GetSlideBrakeInput() const;
+    void Jump();
+    void InterruptSlideForWeapon();
     void ToggleIslandMap();
-    void ToggleEditorPenguinForm();
     void ToggleGraphicsMenu();
+    void ToggleTuningMenu();
 #if WITH_EDITOR
     void PreviousIslandZone();
     void NextIslandZone();
     void VisitIslandZone();
     void CaptureIslandView();
 #endif
-    void SetForm(EForm Form);
-    float GetSlideSpeedScale() const;
-    float GetSlideSpeedLimit() const;
     void StandUpFromSlide();
     void MoveForward(float Value) { ForwardInput = Value; }
     void MoveRight(float Value) { RightInput = Value; }
@@ -208,12 +277,6 @@ private:
     UPROPERTY(Transient)
     TObjectPtr<USoundBase> EquippedFiringSound;
 
-    UPROPERTY(Transient)
-    TObjectPtr<UMaterialInterface> PenguinFormGlow;
-
-    UPROPERTY(Transient)
-    TObjectPtr<UMaterialInterface> EditorPenguinFormGlow;
-
     FVector HipSocketOffset = FVector::ZeroVector;
     float HipArmLength = 508.2f;
     float HipFieldOfView = 78.0f;
@@ -239,21 +302,23 @@ private:
     float RightInput = 0.0f;
     float GroundSpeed = 0.0f;
     double SlideVerticalSpeed = 0.0;
-    double SlideAirGravity = 0.0;
-    float SlideFlightSpeedScale = 1.0f;
     float NextSlideLaunchDistance = 0.0f;
+    float SlideGroundLockRemaining = 0.0f;
+    float DivePitch = 0.0f;
     float CurrentGrade = 0.0f;
     float DistanceThisSlide = 0.0f;
     float PeakSlideSpeed = 0.0f;
     float SlidePoseTime = 0.0f;
     float GaitPhase = 0.0f;
     float SprintBlend = 0.0f;
+    float TurnLean = 0.0f;
     bool bSprintHeld = false;
     bool bSprinting = false;
     bool bSliding = false;
+    bool bSlideBrakeHeld = false;
     bool bSlideAirborne = false;
-    bool bCanLaunchOnUphill = true;
-    EForm ActiveForm = EForm::Normal;
+    bool bDiving = false;
+    int32 WaterSkips = 0;
     bool bSprintEntry = false;
     bool bRecovering = false;
     bool bSwimming = false;
@@ -262,5 +327,6 @@ private:
     FVector WaterCameraOffset = FVector::ZeroVector;
     FRotator SwimHeading = FRotator::ZeroRotator;
     float SwimThrust = 0.0f;
+    float SwimEntryTime = 0.0f;
     double SwimDepth = 0.0;
 };

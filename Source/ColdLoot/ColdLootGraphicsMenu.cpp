@@ -146,7 +146,7 @@ void AColdLootHUD::ToggleGraphicsMenu()
     PlayerOwner->bShowMouseCursor = true;
     PlayerOwner->SetInputMode(FInputModeGameAndUI().SetHideCursorDuringCapture(false)
         .SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock));
-    bPausedForGraphics = !GetWorld()->IsPaused() && PlayerOwner->SetPause(true);
+    bPausedForGraphics = GetNetMode() == NM_Standalone && !GetWorld()->IsPaused() && PlayerOwner->SetPause(true);
 }
 
 void AColdLootHUD::CloseGraphicsMenu()
@@ -174,6 +174,7 @@ void AColdLootHUD::CloseGraphicsMenu()
 
 void AColdLootHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+    CloseTuningMenu();
     CloseGraphicsMenu();
     Super::EndPlay(EndPlayReason);
 }

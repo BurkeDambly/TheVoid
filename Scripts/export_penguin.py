@@ -55,7 +55,9 @@ bpy.context.view_layer.objects.active = rig
 for filename, action_name in (
     ("SK_Penguin", None),
     ("A_Walk_Shuffle", "Walk_Shuffle"),
+    ("A_Walk_Shuffle_Waddle", "Walk_Shuffle_Waddle"),
     ("A_Sprint_Spring", "Sprint_Spring"),
+    ("A_Sprint_Spring_Waddle", "Sprint_Spring_Waddle"),
     ("A_Slide_Belly", "Slide_Belly"),
 ):
     anim.action = bpy.data.actions[action_name] if action_name else None

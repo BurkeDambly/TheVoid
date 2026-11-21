@@ -33,7 +33,11 @@ bool FPinnaclePenguinTest::RunTest(const FString& Parameters)
     {
         TWeakObjectPtr<APinnaclePenguin> Penguin;
         FVector LastPosition;
+        float LastYaw = 0.0f;
+        FTransform LastFeet[2];
         double Distance = 0.0;
+        bool bSampledFeet = false;
+        bool bVerifiedTurn = false;
         bool bPoseAdvanced = false;
         bool bPausedAfterWalking = false;
     };
@@ -41,19 +45,25 @@ bool FPinnaclePenguinTest::RunTest(const FString& Parameters)
     TSet<FName> MeshNames;
     for (APinnaclePenguin* Penguin : TActorRange<APinnaclePenguin>(World))
     {
-        auto* Mesh = Penguin->FindComponentByClass<USkeletalMeshComponent>();
+        auto* Mesh = Penguin->FindComponentByClass<UPinnaclePenguinMeshComponent>();
         if (!TestTrue(TEXT("NPC is placed in the Base Island sublevel with a mesh and shuffle"),
             Penguin->GetLevel()->GetOutermost()->GetName().EndsWith(TEXT("BaseIsland"))
             && Penguin->Island && Penguin->Island->bBaseIsland && Penguin->ShuffleAnimation
-            && Mesh && Mesh->GetSkeletalMeshAsset() && Mesh->GetSingleNodeInstance()))
+            && Mesh && Mesh->GetSkeletalMeshAsset() && Mesh->GetSingleNodeInstance()
+            && Mesh->GetFootBoneIndex(0) != INDEX_NONE && Mesh->GetFootBoneIndex(1) != INDEX_NONE))
         {
             return false;
         }
         MeshNames.Add(Mesh->GetSkeletalMeshAsset()->GetFName());
-        Characters.Add({Penguin, Penguin->GetActorLocation()});
+        FCharacter& Character = Characters.AddDefaulted_GetRef();
+        Character.Penguin = Penguin;
+        Character.LastPosition = Penguin->GetActorLocation();
+        Character.LastYaw = Penguin->GetActorRotation().Yaw;
     }
-    if (!TestTrue(TEXT("Both faction NPCs are present"), Characters.Num() == 2
-        && MeshNames.Contains(TEXT("SK_Whiteout")) && MeshNames.Contains(TEXT("SK_Forgekeeper"))))
+    if (!TestTrue(TEXT("All five faction NPCs are present"), Characters.Num() == 5
+        && MeshNames.Contains(TEXT("SK_Whiteout")) && MeshNames.Contains(TEXT("SK_Forgekeeper"))
+        && MeshNames.Contains(TEXT("SK_Stormstitch")) && MeshNames.Contains(TEXT("SK_Sunmarshal"))
+        && MeshNames.Contains(TEXT("SK_Nightglass"))))
     {
         return false;
     }
@@ -76,7 +86,27 @@ bool FPinnaclePenguinTest::RunTest(const FString& Parameters)
                 {
                     return true;
                 }
-                const auto* Gait = Penguin->FindComponentByClass<USkeletalMeshComponent>()->GetSingleNodeInstance();
+                const auto* Mesh = Penguin->FindComponentByClass<UPinnaclePenguinMeshComponent>();
+                const auto* Gait = Mesh->GetSingleNodeInstance();
+                const float Yaw = Penguin->GetActorRotation().Yaw;
+                const bool bTurned = Character.bSampledFeet && !Gait->IsPlaying()
+                    && Position.Equals(Character.LastPosition, 0.01)
+                    && FMath::Abs(FMath::FindDeltaAngleDegrees(Character.LastYaw, Yaw)) > 0.1f;
+                for (int32 Side = 0; Side < 2; ++Side)
+                {
+                    const FTransform Foot = Mesh->GetBoneTransform(Mesh->GetFootBoneIndex(Side));
+                    if (bTurned && !TestTrue(FString::Printf(TEXT("%s keeps foot %d planted while turning"),
+                        *Mesh->GetSkeletalMeshAsset()->GetName(), Side),
+                        Foot.GetLocation().Equals(Character.LastFeet[Side].GetLocation(), 0.1)
+                        && Foot.GetRotation().AngularDistance(Character.LastFeet[Side].GetRotation()) < 0.002f))
+                    {
+                        return true;
+                    }
+                    Character.LastFeet[Side] = Foot;
+                }
+                Character.LastYaw = Yaw;
+                Character.bSampledFeet = true;
+                Character.bVerifiedTurn |= bTurned;
                 if (Gait->IsPlaying())
                 {
                     Character.Distance += FVector::Dist2D(Position, Character.LastPosition);
@@ -87,10 +117,12 @@ bool FPinnaclePenguinTest::RunTest(const FString& Parameters)
                     Character.bPausedAfterWalking = true;
                 }
                 Character.LastPosition = Position;
-                bFinished &= Character.bPausedAfterWalking;
-                if (Penguin->GetWorld()->GetTimeSeconds() >= Deadline && !Character.bPausedAfterWalking)
+                const bool bChecked = Character.bPausedAfterWalking && Character.bVerifiedTurn;
+                bFinished &= bChecked;
+                if (Penguin->GetWorld()->GetTimeSeconds() >= Deadline && !bChecked)
                 {
-                    AddError(TEXT("NPC did not shuffle and pause within 12 seconds"));
+                    AddError(FString::Printf(TEXT("%s did not complete a planted turn, shuffle, and pause within 12 seconds"),
+                        *Mesh->GetSkeletalMeshAsset()->GetName()));
                     return true;
                 }
             }

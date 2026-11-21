@@ -9,6 +9,10 @@ constexpr int32 Row = 105;
 constexpr double Half = 104.0;
 constexpr double Step = 2.0;
 constexpr double Seafloor = -850.0;
+constexpr double RampY = 800.0;
+constexpr double RampHalfWidth = 270.0;
+constexpr double RampLength = 1200.0;
+constexpr double RampRise = 550.0;
 
 double Mask(const FVector2D& P, const FVector2D& Center, const FVector2D& Width)
 {
@@ -22,6 +26,10 @@ AIcebergIsland::AIcebergIsland()
     Surface->bUseComplexAsSimpleCollision = true;
     Surface->SetCanEverAffectNavigation(false);
     SetRootComponent(Surface);
+    PracticeRamp = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("PracticeJumpRamp"));
+    PracticeRamp->SetupAttachment(Surface);
+    PracticeRamp->bUseComplexAsSimpleCollision = true;
+    PracticeRamp->SetCanEverAffectNavigation(false);
 }
 
 double AIcebergIsland::Elevation(const FVector2D& P) const
@@ -73,7 +81,24 @@ FLinearColor AIcebergIsland::IceColor(const FVector2D& P, double Height, double 
 
 double AIcebergIsland::HeightAt(double WorldX, double WorldY) const
 {
-    const FVector2D Point = (FVector2D(WorldX, WorldY) - FVector2D(GetActorLocation())) / 100.0;
+    const FVector2D Local = FVector2D(WorldX, WorldY) - FVector2D(GetActorLocation());
+    const double Ground = TerrainHeightAt(Local / 100.0);
+    if (const FProcMeshSection* Ramp = PracticeRamp->GetProcMeshSection(0);
+        Ramp && FMath::Abs(Local.Y - RampY) <= RampHalfWidth)
+    {
+        const FVector& Start = Ramp->ProcVertexBuffer[0].Position;
+        const FVector& Lip = Ramp->ProcVertexBuffer[2].Position;
+        const double Progress = (Local.X - Start.X) / (Lip.X - Start.X);
+        if (Progress >= 0.0 && Progress <= 1.0)
+        {
+            return FMath::Max(Ground, GetActorLocation().Z + FMath::Lerp(Start.Z, Lip.Z, Progress));
+        }
+    }
+    return Ground;
+}
+
+double AIcebergIsland::TerrainHeightAt(const FVector2D& Point) const
+{
     if (FMath::Abs(Point.X) >= Half || FMath::Abs(Point.Y) >= Half)
     {
         return GetActorLocation().Z + Seafloor;
@@ -114,6 +139,67 @@ void AIcebergIsland::OnConstruction(const FTransform& Transform)
     RebuildSurface();
 }
 
+void AIcebergIsland::PostInitializeComponents()
+{
+    Super::PostInitializeComponents();
+    if (!PracticeRamp->GetProcMeshSection(0))
+    {
+        RebuildPracticeRamp();
+    }
+}
+
+TOptional<FVector> AIcebergIsland::PracticeRampLip() const
+{
+    const FProcMeshSection* Section = PracticeRamp->GetProcMeshSection(0);
+    if (!Section || Section->ProcVertexBuffer.Num() < 4)
+    {
+        return {};
+    }
+    const FVector Lip = (Section->ProcVertexBuffer[2].Position + Section->ProcVertexBuffer[3].Position) * 0.5;
+    return PracticeRamp->GetComponentTransform().TransformPosition(Lip);
+}
+
+void AIcebergIsland::RebuildPracticeRamp()
+{
+    PracticeRamp->ClearAllMeshSections();
+    if (!bShowPracticeRamp)
+    {
+        return;
+    }
+
+    const double Direction = bBaseIsland ? 1.0 : -1.0;
+    const double Sea = GetActorLocation().Z;
+    double Shore = 5000.0;
+    while (Shore < Half * 100.0 && TerrainHeightAt({Direction * Shore / 100.0, RampY / 100.0}) > Sea)
+    {
+        Shore += 25.0;
+    }
+    const double LipX = Direction * (Shore - 160.0);
+    const double StartX = LipX - Direction * RampLength;
+    const double StartZ = TerrainHeightAt({StartX / 100.0, RampY / 100.0}) - Sea - 55.0;
+    const double LipZ = StartZ + RampRise;
+    constexpr double BottomZ = -150.0;
+    const TArray<FVector> Vertices{
+        {StartX, RampY - RampHalfWidth, StartZ}, {StartX, RampY + RampHalfWidth, StartZ},
+        {LipX, RampY - RampHalfWidth, LipZ}, {LipX, RampY + RampHalfWidth, LipZ},
+        {StartX, RampY - RampHalfWidth, BottomZ}, {StartX, RampY + RampHalfWidth, BottomZ},
+        {LipX, RampY - RampHalfWidth, BottomZ}, {LipX, RampY + RampHalfWidth, BottomZ}};
+    TArray<int32> Triangles{0, 1, 2, 1, 3, 2, 2, 3, 6, 3, 7, 6,
+        0, 2, 4, 2, 6, 4, 1, 5, 3, 3, 5, 7};
+    if (!bBaseIsland)
+    {
+        for (int32 Index = 0; Index < Triangles.Num(); Index += 3)
+        {
+            Swap(Triangles[Index + 1], Triangles[Index + 2]);
+        }
+    }
+    const TArray<FVector2D> UVs{{0, 0}, {0, 1}, {2, 0}, {2, 1}, {0, 0}, {0, 1}, {2, 0}, {2, 1}};
+    TArray<FLinearColor> Colors;
+    Colors.Init(FLinearColor(0.56, 0.27, 0.07), Vertices.Num());
+    PracticeRamp->CreateMeshSection_LinearColor(0, Vertices, Triangles, {}, UVs, Colors, {}, true, false);
+    PracticeRamp->SetMaterial(0, IslandMaterial);
+}
+
 void AIcebergIsland::RebuildSurface()
 {
     TArray<FVector> Vertices, Normals;
@@ -147,6 +233,7 @@ void AIcebergIsland::RebuildSurface()
     }
     Surface->CreateMeshSection_LinearColor(0, Vertices, Triangles, Normals, UVs, Colors, {}, true, true);
     Surface->SetMaterial(0, IslandMaterial);
+    RebuildPracticeRamp();
 }
 
 bool AIcebergIsland::ExportBlenderMesh(const FString& Filename) const

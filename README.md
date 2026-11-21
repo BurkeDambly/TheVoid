@@ -6,7 +6,7 @@
 
 Extract the whole ZIP and double-click `ColdLoot.exe`. Unreal Engine is unnecessary.
 
-Press **F2** for display mode and graphics quality. Press **Q** for Blue Form or **E** for Red Form. Both boost sliding, and **W** powers the slide while a form is active.
+Press **F2** for display mode and graphics quality.
 
 ### Multiplayer and solo tuning playtest
 
@@ -14,11 +14,11 @@ Press **F2** for display mode and graphics quality. Press **Q** for Blue Form or
 
 Everyone extracts the same ZIP. For multiplayer, the host runs `Host Cold Loot.cmd`, and guests run `Join Cold Loot.cmd` and enter the host's IPv4 address. For solo testing, open `ColdLoot.exe`. See `PLAYTEST.txt` in the ZIP for remote setup.
 
-Press **F3** to search and tune movement, sliding, flight, swimming, gunplay, and the camera while playing. In multiplayer the host edits the settings, and guests see the active values. **Save preset** keeps those settings for future solo and hosted games on the same PC.
-
 ## Unreal Engine project
 
 Open `ColdLoot.uproject` in Unreal Engine 5.7. **IcebergNetwork** opens by default. Press **Play**.
+
+Press **F3** in game to search and tune movement, sliding, flight, swimming, gunplay, and the camera. Changes apply live. In multiplayer the host edits the settings, and guests see the active values. **Save preset** keeps those settings for future solo and hosted games on the same PC.
 
 See [the workspace guide](AGENTS.md) for the asset and code map.
 
@@ -26,7 +26,13 @@ You start on **Base Island**. Head straight from spawn toward **Expedition Islan
 into the channel. In water, point the penguin with the mouse and hold **W** to kick forward.
 Release **W** to sink. Build speed underwater and swim up to breach the surface.
 Look down to dive and up to surface. Releasing **W** lets the penguin coast and slow down.
-Fast entries carry momentum into the water. **M** opens the live island map.
+Fast entries carry momentum into the water and hold the entry pose for 0.4 seconds before blending into swimming.
+A fast, shallow approach can skip up to twice. Press **C** in midair to dive straight into the water.
+Both shores have a temporary practice ramp slightly to the side of the direct swim route. Line up with an
+amber ramp, sprint toward it, and press **C** far enough back for the boost's 0.2-second ground lock to finish.
+Press **Space** near the lip to jump through the ring. Turn off **Show Practice Ramp** on either island actor
+to remove its ramp.
+**M** opens the live island map.
 **R** returns to Base Island. The future bunker site is the flat clearing left of spawn as you face the channel.
 
 The **BaseIsland** and **ExpeditionIsland** sublevels under **Content → Maps → IcebergIslands** keep
@@ -45,7 +51,7 @@ To roam Coldzone, open **Content → Maps → FrozenBasin** and press **Play**. 
 **Summit Crown**. Press **M** for the island map with your live location, all twelve zones, and seven
 graded routes. The coastal loop and high traverse connect to the summit switchbacks, glacier link,
 quarry link, gorge link, and the path past **Frost Basin**, a small U-shaped depression around a flat
-ice sheet on the coastal slope. **R** returns to the summit, and **Q** toggles blue Form.
+ice sheet on the coastal slope. **R** returns to the summit.
 
 In Editor builds, **Up/Down** selects a location on the map and **Enter** visits it.
 
@@ -59,17 +65,20 @@ when fitting a Blender asset, then place the imported mesh in Unreal. The camera
 
 | Control | Action |
 | --- | --- |
-| WASD | Move relative to the view. A/D strafe and S backpedals. |
+| WASD | Move or steer in midair relative to the view. On land, A/D strafe and S backpedals. |
 | Mouse | Look around and steer your aim |
 | Shift | Sprint while moving |
-| C | Start or cancel a belly slide. Build speed with Shift and WASD for a boosted entry. |
+| C | Boost into a belly slide on land or pitch straight down in midair |
+| A / D while sliding | Keep turning left or right |
+| S while sliding | Brake at any camera angle |
+| Space | Jump from the ground or during a slide |
 | Hold left mouse | Fire the starter weapon automatically |
 | Hold right mouse | Aim over the shoulder and interrupt sprint |
 | 1 or R | Reset to the flat pad |
 | 2 | Reset on the downhill slope |
 | 3 | Reset facing uphill |
 
-The starter weapon fires visible projectiles along the barrel at **15 rounds per second** with a suppressed shot sound. Sprint hip-fire has a wider spread and stronger camera shake. Firing is blocked during a belly slide and its recovery. Aiming while holding Shift returns movement to walk speed. While aiming, the penguin keeps facing the reticle as you strafe.
+The starter weapon fires visible projectiles along the barrel at **15 rounds per second** with a suppressed shot sound. Sprint hip-fire has a wider spread and stronger camera shake. Firing or aiming exits a slide. Aiming while holding Shift returns movement to walk speed. While aiming, the penguin keeps facing the reticle as you strafe.
 
 **Content → Weapons → Starter → DA_StarterWeapon** holds the fitted weapon meshes, grip pose, shot sound, rounds per second, projectile speed, and damage.
 
@@ -77,10 +86,10 @@ The starter weapon fires visible projectiles along the barrel at **15 rounds per
 
 Stop Play, select **Penguin** in the World Outliner, and open **Details → Penguin**.
 
-- **Locomotion → Walk Distance per Cycle / Sprint Distance per Cycle** control full-speed travel per complete animation cycle. Defaults are **91 cm** for the shuffle and **450 cm** for the sprint.
+- **Locomotion → Walk Distance per Cycle / Sprint Distance per Cycle** control full-speed travel per complete animation cycle. Defaults are **182 cm** for the shuffle and **450 cm** for the sprint.
 - **Animation → Upper Body Jiggle** scales the torso and head follow-through during movement. **0** turns off the added motion. Holding or releasing Shift blends walk and sprint over roughly **0.3 seconds** and carries the current step through the transition.
-- **Slide → Flat Slide Distance** sets the baseline at **420 cm**. **Sprint Slide Distance Multiplier** sets the minimum sprint launch from the flat-distance setting. **Sprint Slide Speed Boost** adds up to **130 cm/s** to your entry speed, subject to the slide speed limit. A full-speed entry travels about **9.3 m** on flat snow.
-- **Slide → Flat Deceleration, Slope Gravity, Slide Speed Limit, and Slide Steering** control grip, grade response, top speed, and turning. Distance settings work up to the configured speed limit. The HUD shows current speed and grade, plus distance and peak speed for the current or last slide.
+- **Slide → Stationary Slide Push** sets the speed when you start a slide from rest. A moving entry gets a boost that settles into a glide on flat ground. Downhill grades can build speed again.
+- **Slide → Flat Deceleration, Fast Slide Deceleration, Slope Gravity, Slide Speed Limit, and Slide Steering** control grip, grade response, top speed, and turning. The HUD shows current speed and grade, plus distance and peak speed for the current or last slide.
 
 Select **Slide Park Terrain** to change **Hill Seed** and **Hill Height Scale**. Head straight from the flat pad to reach the descent, flat runout, and uphill bank. Explore to either side for the generated hills.
 

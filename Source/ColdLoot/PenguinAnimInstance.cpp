@@ -5,6 +5,7 @@
 #include "Animation/AnimSequence.h"
 #include "AnimationRuntime.h"
 #include "Camera/CameraComponent.h"
+#include "ColdLootTuning.h"
 #include "ColdLootWeaponDefinition.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -43,8 +44,14 @@ public:
     {
         FAnimInstanceProxy::PreUpdate(Instance, DeltaSeconds);
         APenguinPawn* Penguin = Cast<APenguinPawn>(Instance->TryGetPawnOwner());
+        // Keep the exact last pose while the penguin carries its entry momentum into the water.
+        if (Penguin && Penguin->IsHoldingWaterEntryPose())
+        {
+            return;
+        }
         Walk = Penguin ? Penguin->WalkAnimation.Get() : nullptr;
         Sprint = Penguin ? Penguin->SprintAnimation.Get() : nullptr;
+        GaitWalk = Walk;
         Slide = Penguin ? Penguin->SlideAnimation.Get() : nullptr;
         Swim = Penguin ? Penguin->SwimAnimation.Get() : nullptr;
         Hold = Penguin && Penguin->WeaponDefinition ? Penguin->WeaponDefinition->HoldPose.Get() : nullptr;
@@ -58,10 +65,25 @@ public:
             return;
         }
 
+        const bool bWeaponOut = Penguin->HasWeapon() && Penguin->WeaponGrip->IsVisible()
+            && Penguin->WeaponReceiver->IsVisible();
+        if (!bWeaponOut)
+        {
+            if (Penguin->WalkWaddleAnimation)
+            {
+                GaitWalk = Penguin->WalkWaddleAnimation;
+            }
+            if (Penguin->SprintWaddleAnimation)
+            {
+                Sprint = Penguin->SprintWaddleAnimation;
+            }
+        }
+
         Phase = Penguin->GaitPhase;
         SprintWeight = FMath::SmoothStep(0.0f, 1.0f, Penguin->SprintBlend);
         MovingWeight = FMath::SmoothStep(0.0f, 65.0f, Penguin->GroundSpeed);
-        Jiggle = MovingWeight * Penguin->UpperBodyJiggle;
+        Jiggle = MovingWeight * Penguin->UpperBodyJiggle
+            * FColdLootTuning::ForWorld(Penguin->GetWorld()).Get(EColdLootTuning::BodyJiggle);
         AimLeanWeight = Penguin->CanFire() ? Penguin->AimBlend : 0.0f;
         HoldWeight = FMath::Max(Penguin->SprintFireBlend,
             1.0f - FMath::SmoothStep(0.0f, 0.62f, Penguin->SprintBlend));
@@ -160,13 +182,13 @@ private:
 
     void EvaluateGait(FPoseContext& Output) const
     {
-        const double WalkTime = Walk ? Phase * Walk->GetPlayLength() : 0.0;
+        const double WalkTime = GaitWalk ? Phase * GaitWalk->GetPlayLength() : 0.0;
         const double SprintTime = Sprint ? Phase * Sprint->GetPlayLength() : 0.0;
         if (!Sprint || SprintWeight <= 0.0f)
         {
-            Sample(Output, Walk, WalkTime, true);
+            Sample(Output, GaitWalk, WalkTime, true);
         }
-        else if (!Walk || SprintWeight >= 1.0f)
+        else if (!GaitWalk || SprintWeight >= 1.0f)
         {
             Sample(Output, Sprint, SprintTime, true);
         }
@@ -175,7 +197,7 @@ private:
             // The source clips share a normalized left-right stride cycle.
             FPoseContext Walking(Output);
             FPoseContext Sprinting(Output);
-            Sample(Walking, Walk, WalkTime, true);
+            Sample(Walking, GaitWalk, WalkTime, true);
             Sample(Sprinting, Sprint, SprintTime, true);
             Blend(Output, Walking, Sprinting, SprintWeight);
         }
@@ -312,6 +334,7 @@ private:
     }
 
     const UAnimSequence* Walk = nullptr;
+    const UAnimSequence* GaitWalk = nullptr;
     const UAnimSequence* Sprint = nullptr;
     const UAnimSequence* Slide = nullptr;
     const UAnimSequence* Swim = nullptr;

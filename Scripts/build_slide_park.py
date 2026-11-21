@@ -14,7 +14,7 @@ actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
 
 
 def import_fbx(name, folder, skeleton=None, source_dir=FBX, *, mesh_skeleton=None, import_materials=True,
-               replace_existing=False):
+               replace_existing=False, vertex_colors=None):
     existing = f"{folder}/{name}"
     if not replace_existing and unreal.EditorAssetLibrary.does_asset_exist(existing):
         return unreal.load_asset(existing)
@@ -41,6 +41,8 @@ def import_fbx(name, folder, skeleton=None, source_dir=FBX, *, mesh_skeleton=Non
     else:
         mesh_options = options.get_editor_property("skeletal_mesh_import_data")
         mesh_options.set_editor_property("convert_scene_unit", True)
+        if vertex_colors is not None:
+            mesh_options.set_editor_property("vertex_color_import_option", vertex_colors)
     task = unreal.AssetImportTask()
     task.filename = str(source_dir / f"{name}.fbx")
     task.destination_path = folder
